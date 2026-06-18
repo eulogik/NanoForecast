@@ -12,7 +12,7 @@ import numpy as np
 
 from nanoforecast import NanoForecast
 
-MODEL_SOURCE = "checkpoints/nanoforecast-200k"  # or "your-user/nanoforecast-200k"
+MODEL_SOURCE = "eulogik/nanoforecast-200k"  # or local "checkpoints/nanoforecast-200k"
 
 print(f"🔮 NanoForecast — Loading model from {MODEL_SOURCE}...")
 model = NanoForecast.from_pretrained(MODEL_SOURCE)
