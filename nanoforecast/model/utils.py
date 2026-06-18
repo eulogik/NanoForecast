@@ -96,25 +96,44 @@ class AdaptivePatching(nn.Module):
             padding_len: Amount of padding added to the input sequence
         """
         batch_size, channels, seq_len = x.shape
-        
-        # Check if padding is needed
+
         padding_len = 0
         rem = seq_len % self.patch_size
         if rem != 0:
             padding_len = self.patch_size - rem
             x = torch.nn.functional.pad(x, (0, padding_len), mode="replicate")
-            
+
         new_seq_len = seq_len + padding_len
         num_patches = new_seq_len // self.patch_size
-        
-        # Reshape to patches: [batch_size, channels, num_patches, patch_size]
-        # (Using view instead of unfold for ONNX export compatibility)
+
         patches = x.view(batch_size, channels, num_patches, self.patch_size)
-        
-        # Flatten batch and channels: [batch_size * channels, num_patches, patch_size]
         patches = patches.contiguous().view(batch_size * channels, num_patches, self.patch_size)
-        
-        # Project patches: [batch_size * channels, num_patches, d_model]
         projected = self.projection(patches)
-        
+
         return projected, padding_len
+
+
+class PatchPositionalEncoding(nn.Module):
+    """
+    Learned positional embeddings for the patch index axis (0..max_patches-1).
+    A separate zero embedding is provided for the prepended resolution prefix token
+    so the prefix remains untouched.
+    """
+    def __init__(self, max_patches: int, d_model: int):
+        super().__init__()
+        # Index 0 is the prefix slot; patches are 1..max_patches
+        self.pe = nn.Embedding(max_patches + 1, d_model)
+        nn.init.normal_(self.pe.weight, mean=0.0, std=0.02)
+        # Zero out the prefix slot
+        with torch.no_grad():
+            self.pe.weight[0].zero_()
+
+    def forward(self, seq: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            seq: Tensor of shape [B, num_patches + 1, d_model]
+        Returns:
+            seq with positional encoding added.
+        """
+        positions = torch.arange(seq.shape[1], device=seq.device, dtype=torch.long)
+        return seq + self.pe(positions)

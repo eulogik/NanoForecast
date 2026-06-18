@@ -42,9 +42,16 @@ ENV/
 
 # Model checkpoints & compilation outputs
 checkpoints/
+results/
 *.pt
 *.onnx
+*.safetensors
 
 # Test and Logs
 .pytest_cache/
 *.log
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/

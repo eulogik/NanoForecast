@@ -1,211 +1,249 @@
-# 🚀 NanoForecast: The World's Smallest Time Series Foundation Model
+# 🔮 NanoForecast
 
-<div align="center">
+**World's most deployable time series transformer**
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
-[![Model Parameters](https://img.shields.io/badge/Parameters-200K--500K-brightgreen.svg)](#architecture-specifications)
-[![ONNX Runtime](https://img.shields.io/badge/ONNX-Compatible-success.svg)](https://onnxruntime.ai/)
-[![Hugging Face](https://img.shields.io/badge/%F0%9F%A5%97%20Hugging%20Face-NanoForecast-yellow.svg)](https://huggingface.co/)
-[![OpenRouter](https://img.shields.io/badge/OpenRouter-Forecasting_API-purple.svg)](https://openrouter.ai/)
+[![HF Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/eulogik/nanoforecast)
+[![HF Model](https://img.shields.io/badge/🤗%20Model-nanoforecast--200k-blue)](https://huggingface.co/eulogik/nanoforecast-200k)
+[![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](./LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
 
-**Zero-Shot Time Series Forecasting • Runs Local in <50ms on CPU • Sub-2MB Quantized Footprint**
+NanoForecast is a **tiny, fast, deployable** time series forecasting model. Unlike foundation models that require GPUs and terabytes of data, NanoForecast:
 
-</div>
+- **Trains in 20 minutes** on a MacBook Air (no GPU needed)
+- **Runs on a Raspberry Pi** (<50ms inference on ARM)
+- **Exports to 1.4 MB ONNX** (Edge/IoT/browser ready)
+- **Fully Apache 2.0** — no strings attached
 
----
-
-## 🌟 Overview
-
-**NanoForecast** is an ultra-lightweight, universal time series foundation model designed for **zero-shot forecasting, anomaly detection, and decomposition**. While dominant foundation models like *TimesFM-2.5* (500M parameters) or *Chronos* (205M+ parameters) require heavy GPUs and huge memory allocations, NanoForecast achieves state-of-the-art zero-shot accuracy with **only 200K to 500K parameters**, making it small enough to run on edge devices, mobile phones, and CPU-based servers.
-
-### Why NanoForecast?
-
-*   **Zero-Shot Generalization**: Pretrained on a diverse mixture of 10M+ time series across IoT, finance, retail, weather, energy, and medical domains. No fine-tuning required.
-*   **Edge-First Footprint**: The float32 model is **~3.2MB**; the INT8 dynamic quantized model is **1.4MB**. Runs local inference in `<50ms` on a standard CPU or Raspberry Pi.
-*   **Monotonic prediction intervals**: Our custom quantile head mathematically prevents "quantile crossing" (e.g., $p_{10} > p_{50}$), guaranteeing robust and logical confidence intervals.
-*   **Dual-Decomposition Conservation**: Trend, seasonality, and residual components sum up exactly to the point forecast.
-*   **Multi-Task Output**: Produces point forecasts, prediction intervals ($p_{10}$, $p_{25}$, $p_{50}$, $p_{75}$, $p_{90}$), context reconstruction (for anomaly detection), and decomposition components in a **single forward pass**.
+It's **not** a foundation model. It's not going to beat TimesFM on benchmarks. What it does is **actually ship to production**.
 
 ---
 
-## 📐 Architecture
-
-NanoForecast blends **sequence representations** and **linear RNN state updates** with **resolution prefix tuning** for optimal contextual awareness:
-
-```
-                          NanoForecast Forward Flow
-                          
-                          ┌──────────────────────────┐
-                          │   Raw Context Series     │
-                          └─────────────┬────────────┘
-                                        │
-                                        ▼
-                          ┌──────────────────────────┐
-                          │ Robust Scaling & Patching│
-                          └─────────────┬────────────┘
-                                        │
-                                        ▼
-    ┌───────────────┐     ┌──────────────────────────┐
-    │ Resolution ID ├────►│ Prepend Frequency Token  │
-    └───────────────┘     └─────────────┬────────────┘
-                                        │
-                                        ▼
-                          ┌──────────────────────────┐
-                          │ Sequence Mixing Blocks   │
-                          │   • Depthwise Conv1d     │ (Global periodicity)
-                          │   • DeltaNet RNN         │ (Local dependencies)
-                          │   • Gated Router & MLP   │ (Dynamic blending)
-                          └─────────────┬────────────┘
-                                        │
-                                        ▼
-                          ┌──────────────────────────┐
-                          │    Multi-Task Heads      │
-                          └──────┬──────────────┬────┘
-                                 │              │
-        ┌────────────────────────┴───┐      ┌───┴────────────────────────┐
-        │ Point, Quantile & Anomaly  │      │ Trend & Seasonality Decomp │
-        └────────────────────────────┘      └────────────────────────────┘
-```
-
-### Specifications
-
-| Preset | d_model | Layers | Patch Size | Parameters | Disk Size (FP32) | Disk Size (INT8) |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Nano-200K** | 32 | 4 | 8 | ~220K | ~0.9 MB | ~280 KB |
-| **Nano-500K** | 64 | 8 | 8 | ~705K | ~3.2 MB | ~1.4 MB |
-
----
-
-## ⚡ Quickstart
-
-### Installation
+## Quick Start
 
 ```bash
-git clone https://github.com/your-username/NanoForecast.git
-cd NanoForecast
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+pip install nanoforecast
 ```
-
-### Python Inference
 
 ```python
-import torch
-from nanoforecast.config import NanoForecastConfig
-from nanoforecast.model.core import NanoForecast
+import numpy as np
+from nanoforecast import NanoForecast
 
-# 1. Initialize configuration & model
-config = NanoForecastConfig.nano_500k() # Uses 705K parameter profile
-model = NanoForecast(config)
+model = NanoForecast.from_pretrained("eulogik/nanoforecast-200k")
 
-# Load pretrained weights (e.g. checkpoints/best_model.pt)
-checkpoint = torch.load("checkpoints/best_model.pt", map_location="cpu")
-model.load_state_dict(checkpoint["model_state_dict"])
-model.eval()
-
-# 2. Prepare context inputs (Batch size = 2, Channels = 1, Context Length = 256)
-x = torch.randn(2, 1, 256) 
-freq_ids = torch.tensor([1, 2]) # 1: Hourly, 2: Daily
-
-# 3. Predict point, intervals, anomaly, and decomposition in one pass
-with torch.no_grad():
-    outputs = model(x, freq_ids)
-
-# Extract predictions
-forecast = outputs["forecast"]       # Shape: [2, 1, 48] (Point predictions)
-quantiles = outputs["quantiles"]     # Shape: [2, 1, 5, 48] (p10, p25, p50, p75, p90)
-trend = outputs["trend"]             # Shape: [2, 1, 48]
-seasonal = outputs["seasonal"]       # Shape: [2, 1, 48]
-residual = outputs["residual"]       # Shape: [2, 1, 48]
-
-print("Forecast Shape:", forecast.shape)
-print("Monotonic Quantile Checks: p10 <= p90 =", torch.all(quantiles[:, :, 0] <= quantiles[:, :, 4]).item())
-print("Conservation Identity: Trend + Seasonal + Residual == Forecast =", 
-      torch.allclose(trend + seasonal + residual, forecast, atol=1e-5))
+context = np.sin(np.linspace(0, 8*np.pi, 256)) + 0.1 * np.random.randn(256)
+result = model.predict(context, horizon=48, freq=1)
+forecast = result["forecast"][0]  # shape (48,)
 ```
 
----
+## Try It Now
 
-## 🛠️ Pipelines
+[![Open in HF Spaces](https://img.shields.io/badge/🤗%20Open%20in%20Spaces-blueviolet)](https://huggingface.co/spaces/eulogik/nanoforecast)
 
-### Generate Synthetic Data
-We provide a parallelized time series generator to create millions of training series:
-```python
-from nanoforecast.data.generator import SyntheticTimeSeriesGenerator
+Upload a CSV, set your horizon, get a forecast + prediction intervals + decomposition plot. No code required.
 
-generator = SyntheticTimeSeriesGenerator(seed=42)
-# Generates a dataset of 1000 time series records with 256 context and 48 future steps
-records = generator.generate_dataset(num_series=1000, context_len=256, prediction_len=48)
-```
+## Features
 
-### Training & Benchmark
-To launch training with mixed-precision on your datasets:
-```bash
-python3 run_pipeline.py
-```
-This runs the full curriculum scheduler, prints validation benchmarks (MASE, sMAPE, Quantile Coverages), and compiles the model to ONNX.
+| Feature | Details |
+|---|---|
+| **Architecture** | LongConv + DeltaNet RNN + gated router + MLP blocks |
+| **Parameters** | ~200K–700K (tiny) |
+| **Outputs** | Point forecast + 5 quantiles (p10/p25/p50/p75/p90) + trend/seasonal/residual decomposition |
+| **Context** | 256 timesteps |
+| **Horizon** | Any length (trained on 48) |
+| **Frequency** | Hourly / Daily / Weekly / Monthly |
+| **Deploy targets** | CPU, ARM, Raspberry Pi, Lambda, iOS, browser (via ONNX.js) |
 
----
+## Deploy
 
-## 📦 ONNX Export & Edge Quantization
-
-To compile the model for ultra-fast deployment (e.g., inside browser engines or microcontrollers):
+### FastAPI Server
 
 ```bash
-python3 -m nanoforecast.export.onnx_export --checkpoint checkpoints/best_model.pt --output checkpoints/nanoforecast.onnx
+pip install nanoforecast fastapi uvicorn python-multipart
+python3 deploy/fastapi_server.py
+# → http://localhost:8000/docs
 ```
 
-This generates:
-1.  `checkpoints/nanoforecast.onnx` (FP32 baseline - ~3.17 MB)
-2.  `checkpoints/nanoforecast_int8.onnx` (INT8 dynamic quantization - **~1.42 MB**)
+```bash
+curl -X POST http://localhost:8000/predict \
+  -d "context=[1.0,2.0,3.0,...]" \
+  -d "horizon=48" \
+  -d "freq=1"
+```
 
-### Running with ONNX Runtime
+### Docker
+
+```bash
+docker build -t nanoforecast -f deploy/Dockerfile .
+docker run -p 8000:8000 nanoforecast
+```
+
+### ONNX (Edge / IoT)
+
+```bash
+pip install "nanoforecast[onnx]"
+python3 -m nanoforecast.export.onnx_export \
+    --checkpoint checkpoints/nanoforecast-200k \
+    --output nanoforecast.onnx
+```
+
+Then load with onnxruntime on any platform:
 
 ```python
 import onnxruntime as ort
-import numpy as np
-
-# Load the quantized model
-session = ort.InferenceSession("checkpoints/nanoforecast_int8.onnx")
-
-# Run inference
-inputs = {
-    "context": np.random.randn(1, 1, 256).astype(np.float32),
-    "freq_ids": np.array([1], dtype=np.int64)
-}
-outputs = session.run(None, inputs)
-
-forecast, quantiles, reconstructed, trend, seasonal, residual = outputs
-print("ONNX Point Forecast Shape:", forecast.shape)
+session = ort.InferenceSession("nanoforecast.onnx")
+forecast = session.run(None, {"input": context_numpy})
 ```
 
 ---
 
-## 📈 Benchmarks
+## Repository layout
 
-Detailed performance benchmarks on **GIFT-Eval** and **TIME** validation tasks:
-
-| Model | Size | Gift-Eval MASE | Inference Time (CPU) | Quantized Size |
-| :--- | :---: | :---: | :---: | :---: |
-| **Chronos-Bolt-Base** | 205M | 0.731 | ~650ms | 410 MB |
-| **TimesFM-2.5** | 500M | 0.705 | ~1200ms | 1.0 GB |
-| **Reverso-Nano** | 200K | 0.760 | ~80ms | -- |
-| **NanoForecast-200K** | 220K | **0.742** | **<15ms** | **280 KB** |
-| **NanoForecast-500K** | 705K | **0.688** | **<45ms** | **1.42 MB** |
+```
+nanoforecast/
+  config.py              # NanoForecastConfig dataclass
+  model/                 # core architecture
+    blocks.py            # LongConv, DeltaNet, GatedMLP, GatedRouter
+    heads.py             # point, quantile (monotonic), anomaly, decomposition
+    core.py              # NanoForecast nn.Module
+    utils.py             # scaler, patching, freq prefix, positional encoding
+  train/
+    loss.py              # multi-task loss (point + quantile + anomaly + smooth)
+    trainer.py           # OneCycleLR trainer with MPS / CUDA / CPU support
+  data/
+    generator.py         # synthetic time series generator
+    pipeline.py          # dataset + resolution-aware batch sampler
+    real_datasets.py     # ETTh1/2, ETTm1, exchange_rate, electricity, traffic loaders
+  evaluation/
+    benchmark.py         # MASE, sMAPE, MSE, MAE, CRPS, coverage
+  export/
+    onnx_export.py       # FP32 + dynamic INT8 ONNX export
+  hub.py                 # save_pretrained / from_pretrained / predict mixin
+gradio_app.py            # Hugging Face Space (upload CSV → forecast plot)
+demo.py                  # one-liner demo: python3 demo.py
+deploy/                  # FastAPI server + Docker
+  fastapi_server.py
+  Dockerfile
+  requirements.txt
+pretrain.py              # real + synthetic pretraining CLI
+benchmark.py             # multi-dataset benchmark CLI
+push_to_hub.py           # publish a checkpoint to the HF Hub
+run_pipeline.py          # synthetic-only smoke pipeline (legacy)
+tests/                   # unit + smoke tests
+```
 
 ---
 
-## 🤝 Contributing
+## Architecture
 
-We welcome contributions to the NanoForecast ecosystem! Check out these areas if you'd like to get involved:
-*   Adding bindings for other time series toolkits (e.g., `sktime`, `darts`).
-*   Optimizing custom WebAssembly (WASM) and CoreML/TFLite export layouts.
-*   Pretraining curriculum expansions.
+```
+Raw Context  ->  Robust Scaling & Patching  ->  Resolution Prefix Token
+                                                  |
+                                                  v
+                              Sequence Mixing Blocks (x N)
+                                - LongConv (global periodicity)
+                                - DeltaNet RNN (local dependencies)
+                                - Gated Router & MLP (dynamic blend)
+                                                  |
+                                                  v
+                            Multi-Task Heads (single forward pass)
+                              - Point forecast
+                              - Monotonic quantiles (p10..p90)
+                              - Context reconstruction (anomaly)
+                              - Trend / Seasonality decomposition
+```
+
+| Preset | d_model | Layers | Patch | Parameters | FP32 size |
+|---|---:|---:|---:|---:|---:|
+| `nano-200k` | 32 | 4 | 8 | ~676K | ~2.7 MB |
+| `nano-500k` | 64 | 8 | 8 | ~1.6M | ~6.4 MB |
+
+### Design notes
+
+- **Instance Robust Scaler** (median / IQR) makes the model robust to outliers.
+- **Monotonic quantile head** guarantees p10 ≤ p25 ≤ p50 ≤ p75 ≤ p90.
+- **Conservation identity**: trend + seasonal + residual ≡ point forecast.
+- **ONNX exportable** with a drop-in RMSNorm replacement.
 
 ---
 
-## 📄 License
+## Train Your Own
 
-NanoForecast is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) for details.
+```bash
+python3 pretrain.py \
+  --datasets ETTh1,ETTh2,exchange_rate,electricity \
+  --epochs 50 \
+  --batch-size 64 \
+  --device cpu \
+  --output checkpoints/nanoforecast-my-data
+```
+
+## Benchmarking
+
+```bash
+python3 benchmark.py \
+  --checkpoint checkpoints/nanoforecast-200k \
+  --datasets ETTh1,ETTh2,ETTm1,exchange_rate \
+  --max-windows 64 \
+  --output results/benchmark.json
+```
+
+## Publishing to HF Hub
+
+```bash
+huggingface-cli login
+python3 push_to_hub.py \
+  --checkpoint checkpoints/nanoforecast-200k \
+  --repo-id your-username/nanoforecast-200k \
+  --benchmark-json results/benchmark.json
+```
+
+---
+
+## Benchmarks (current v0.1 demo checkpoint)
+
+Pretrained for 20 epochs on ETTh1 (~1000 windows) on CPU. These numbers
+demonstrate the pipeline works end-to-end but are **not** competitive.
+
+| Dataset | MASE | sMAPE (%) | MAE | CRPS |
+|---|---:|---:|---:|---:|
+| ETTh1 | ~5 | ~35 | ~3 | ~2 |
+| exchange_rate | ~11 | 2.4 | 0.015 | 0.01 |
+
+v0.2 target (Mac Mini training, ~2-4 hours): bring MASE < 2.0 on ETTh1.
+
+---
+
+## Known limitations
+
+| Issue | Status |
+|---|---|
+| **Accuracy** | Poor vs SOTA (MASE 4-11 on ETT). Good enough for prototypes, not production forecasting at scale. |
+| **Training** | Single dataset or basic mixing — no multi-dataset pretraining (pending v0.2 on Mac Mini). |
+| **Context** | Fixed 256 — longer history is truncated. |
+| **Channels** | Univariate by default; multivariate support is per-dimension independent. |
+| **Edge cases** | NaN values, missing timestamps, irregularly-sampled data not handled automatically. |
+
+This is a **developer tool**, not a research paper. It prioritizes deployability over accuracy.
+
+## Roadmap
+
+| Version | Focus | Timeline |
+|---|---|---|
+| v0.1 | Deployable MVP — train, predict, export, deploy | ✅ Done |
+| v0.2 | Better training — multi-dataset, longer, MPS | Next (Mac Mini) |
+| v0.3 | ONNX.js browser demo, iOS Swift package | TBD |
+| v0.4 | OpenRouter API — $0.001/forecast | TBD |
+
+## Why "NanoForecast"?
+
+Because forecasting models shouldn't require:
+- A $30K GPU
+- 100 GB of training data
+- 12 dependencies that break every release
+- A team of PhDs to deploy
+
+You should be able to train a forecasting model on your laptop, deploy it to a Raspberry Pi, and have it running in production before lunch.
+
+## License
+
+Apache 2.0. See [LICENSE](./LICENSE).

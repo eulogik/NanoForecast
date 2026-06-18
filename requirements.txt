@@ -1,0 +1,27 @@
+# Core dependencies
+torch>=2.0,<3.0
+numpy>=1.24,<3.0
+pandas>=1.5,<3.0
+requests>=2.28
+
+# Hugging Face Hub integration (for from_pretrained / push_to_hub)
+huggingface_hub>=0.20
+
+# Optional: ONNX export and dynamic INT8 quantization
+# Install with: pip install "nanoforecast[onnx]"
+onnx>=1.14 ; extra == 'onnx'
+onnxruntime>=1.15 ; extra == 'onnx'
+
+# Optional: Gradio Space / demo
+# Install with: pip install "nanoforecast[spaces]"
+gradio>=4.0 ; extra == 'spaces'
+plotly>=5.0 ; extra == 'spaces'
+
+# Optional: FastAPI deployment
+# Install with: pip install "nanoforecast[deploy]"
+fastapi>=0.110.0 ; extra == 'deploy'
+uvicorn[standard]>=0.27.0 ; extra == 'deploy'
+python-multipart>=0.0.6 ; extra == 'deploy'
+
+# Optional: development
+pytest>=7.0 ; extra == 'dev'

@@ -1,0 +1,6 @@
+nanoforecast>=0.1.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pandas>=2.0
+numpy>=1.24
+python-multipart>=0.0.6

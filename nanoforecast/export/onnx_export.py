@@ -1,10 +1,60 @@
 import os
 import torch
 import argparse
+import torch.nn as nn
+import torch.nn.functional as F
 from typing import Optional
 
 from nanoforecast.model.core import NanoForecast
 from nanoforecast.config import NanoForecastConfig
+
+
+class _RMSNormExportable(nn.Module):
+    """Drop-in replacement for nn.RMSNorm that uses only exportable ops.
+
+    PyTorch's built-in nn.RMSNorm lowers to aten::rms_norm, which is not
+    supported by the ONNX opset 17 exporter. This module decomposes the
+    operation into primitives (pow/mean/add/sqrt/mul/mul) that export
+    cleanly while remaining numerically equivalent at inference.
+    """
+    def __init__(self, normalized_shape, eps: float = None, elementwise_affine: bool = True):
+        super().__init__()
+        if isinstance(normalized_shape, int):
+            normalized_shape = (normalized_shape,)
+        self.normalized_shape = tuple(normalized_shape)
+        self.eps = eps if eps is not None else 1e-5
+        self.elementwise_affine = elementwise_affine
+        if elementwise_affine:
+            self.weight = nn.Parameter(torch.ones(self.normalized_shape))
+        else:
+            self.register_parameter("weight", None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        dims = tuple(range(-len(self.normalized_shape), 0))
+        norm_x = torch.mean(x * x, dim=dims, keepdim=True)
+        norm_x = torch.sqrt(norm_x + self.eps)
+        out = x / norm_x
+        if self.weight is not None:
+            out = out * self.weight
+        return out
+
+
+def _swap_rms_norm(module: nn.Module) -> None:
+    """Recursively replace all nn.RMSNorm modules with _RMSNormExportable."""
+    for name, child in module.named_children():
+        if isinstance(child, nn.RMSNorm):
+            new = _RMSNormExportable(
+                normalized_shape=child.normalized_shape,
+                eps=getattr(child, "eps", None),
+                elementwise_affine=child.elementwise_affine,
+            )
+            if child.elementwise_affine and child.weight is not None:
+                with torch.no_grad():
+                    new.weight.copy_(child.weight)
+            setattr(module, name, new)
+        else:
+            _swap_rms_norm(child)
+
 
 def export_to_onnx(
     model: NanoForecast,
@@ -16,6 +66,7 @@ def export_to_onnx(
     quantizes it to INT8 using onnxruntime-quantization.
     """
     model.eval()
+    _swap_rms_norm(model)
     config = model.config
     
     # 1. Prepare dummy inputs matching model signature

@@ -82,68 +82,87 @@ class ResolutionBatchSampler(Sampler):
     Groups indices by their frequency ID and yields batches containing
     series of ONLY one frequency. This allows the model to learn frequency-specific
     priors cleanly within a batch.
+
+    By default `drop_last=False` and `min_batch_size=1`, so partial remainder
+    batches are emitted rather than dropped silently. Set `drop_last=True` to
+    recover the original strict behaviour.
     """
     def __init__(
-        self, 
-        freq_ids: List[int], 
-        batch_size: int, 
-        shuffle: bool = True
+        self,
+        freq_ids: List[int],
+        batch_size: int,
+        shuffle: bool = True,
+        drop_last: bool = False,
+        min_batch_size: int = 1,
     ):
         self.batch_size = batch_size
         self.shuffle = shuffle
-        
-        # Group indices by freq_id
+        self.drop_last = drop_last
+        self.min_batch_size = max(1, min_batch_size)
+
         self.freq_to_indices = {}
         for idx, freq_id in enumerate(freq_ids):
-            if freq_id not in self.freq_to_indices:
-                self.freq_to_indices[freq_id] = []
-            self.freq_to_indices[freq_id].append(idx)
+            self.freq_to_indices.setdefault(freq_id, []).append(idx)
 
     def __iter__(self):
         batches = []
-        for freq_id, indices in self.freq_to_indices.items():
+        for indices in self.freq_to_indices.values():
             indices_copy = list(indices)
             if self.shuffle:
                 np.random.shuffle(indices_copy)
-                
-            # Yield batches of size self.batch_size
+
             for i in range(0, len(indices_copy), self.batch_size):
                 batch = indices_copy[i:i + self.batch_size]
-                # Drop last small batch to maintain uniform shape
-                if len(batch) == self.batch_size:
-                    batches.append(batch)
-                    
-        # Shuffle order of batches
+                if len(batch) < self.min_batch_size:
+                    continue
+                if self.drop_last and len(batch) != self.batch_size:
+                    continue
+                batches.append(batch)
+
         if self.shuffle:
             np.random.shuffle(batches)
-            
+
         return iter(batches)
 
     def __len__(self) -> int:
-        total_batches = 0
-        for freq_id, indices in self.freq_to_indices.items():
-            total_batches += len(indices) // self.batch_size
-        return total_batches
+        total = 0
+        for indices in self.freq_to_indices.values():
+            n = len(indices)
+            if self.drop_last:
+                total += n // self.batch_size
+            else:
+                # ceil(n / batch_size) with min_batch_size filtering
+                full, rem = divmod(n, self.batch_size)
+                total += full + (1 if rem >= self.min_batch_size else 0)
+        return total
 
 
 def create_dataloader(
     records: List[Dict],
     batch_size: int,
     augment: bool = False,
-    shuffle: bool = True
+    shuffle: bool = True,
+    drop_last: bool = False,
+    min_batch_size: int = 1,
 ) -> torch.utils.data.DataLoader:
     """
     Helper function to wrap dataset in a DataLoader using ResolutionBatchSampler.
     """
     dataset = TimeSeriesDataset(records, augment=augment)
     freq_ids = [rec["freq_id"] for rec in records]
-    
-    sampler = ResolutionBatchSampler(freq_ids, batch_size, shuffle=shuffle)
-    
+
+    sampler = ResolutionBatchSampler(
+        freq_ids,
+        batch_size,
+        shuffle=shuffle,
+        drop_last=drop_last,
+        min_batch_size=min_batch_size,
+    )
+
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=sampler,
-        num_workers=0, # Use main thread to avoid multiprocessing serialization overhead in testing
+        num_workers=0,
         pin_memory=True
     )
     return loader

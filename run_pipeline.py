@@ -16,61 +16,69 @@ def main():
     print("NANOFORECAST PIPELINE: SYNTHETIC PRETRAINING & BENCHMARKING")
     print("=" * 60)
     
-    # 1. Configuration Setup (Nano-200K Profile)
+    # 1. Configuration Setup (Nano-500K profile for stronger capacity)
     config = NanoForecastConfig(
         context_length=256,       # Shorter context for faster dry-run execution
         prediction_length=48,     # Horizon steps
-        d_model=32,               # Hidden dim
-        num_layers=4,             # Depth
+        d_model=64,               # Hidden dim
+        num_layers=8,             # Depth
         patch_size=8,             # Patch size
-        covariate_dim=4           # 4 exogenous covariates
+        covariate_dim=4,          # 4 exogenous covariates
     )
     print(f"Loaded Configuration: {config}")
-    
+
     # Set seed for reproducibility
     torch.manual_seed(42)
     np.random.seed(42)
-    
+
     # 2. Generate Synthetic Dataset
     print("\n[Step 1/5] Generating synthetic time series data...")
     generator = SyntheticTimeSeriesGenerator(seed=42)
-    
+
     # Generate 400 series for training, 100 for validation
     train_records = generator.generate_dataset(num_series=400, context_len=256, prediction_len=48)
     val_records = generator.generate_dataset(num_series=100, context_len=256, prediction_len=48)
-    
-    # Build data loaders using resolution-aware batch sampler
-    train_loader = create_dataloader(train_records, batch_size=16, augment=True, shuffle=True)
-    val_loader = create_dataloader(val_records, batch_size=16, augment=False, shuffle=False)
+
+    # Build data loaders using resolution-aware batch sampler (no silent batch drops)
+    train_loader = create_dataloader(train_records, batch_size=16, augment=True, shuffle=True, drop_last=False)
+    val_loader = create_dataloader(val_records, batch_size=16, augment=False, shuffle=False, drop_last=False)
     print(f"--> Train batches: {len(train_loader)} | Validation batches: {len(val_loader)}")
-    
+
     # 3. Model & Loss Initialization
     print("\n[Step 2/5] Initializing NanoForecast model & MultiTask Loss...")
     model = NanoForecast(config)
-    
+
     # Print parameter count
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"--> Total Trainable Parameters: {total_params / 1e3:.2f}K parameters")
-    
-    loss_fn = MultiTaskLoss(quantiles=config.quantiles)
-    
+
+    # Reweighted loss: downweight point, upweight quantile (fixes tail under-coverage),
+    # drop redundant decomp term, soften smoothness penalty.
+    loss_fn = MultiTaskLoss(
+        quantiles=config.quantiles,
+        w_point=0.5,
+        w_quantile=2.0,
+        w_anomaly=0.25,
+        w_smooth=0.05,
+    )
+
     # 4. Training Loop
-    print("\n[Step 3/5] Starting model training (2 epochs for validation)...")
+    print("\n[Step 3/5] Starting model training (10 epochs)...")
     trainer = NanoForecastTrainer(
         model=model,
         loss_fn=loss_fn,
-        lr=1e-3,
+        lr=3e-4,
         checkpoint_dir="checkpoints"
     )
-    
-    trainer.fit(train_loader, val_loader, epochs=2)
+
+    trainer.fit(train_loader, val_loader, epochs=10)
     
     # 5. Model Evaluation
     print("\n[Step 4/5] Evaluating best model checkpoint against validation set...")
     # Load best model checkpoint
     checkpoint_path = "checkpoints/best_model.pt"
     if os.path.exists(checkpoint_path):
-        checkpoint = torch.load(checkpoint_path, map_location=trainer.device)
+        checkpoint = torch.load(checkpoint_path, map_location=trainer.device, weights_only=False)
         model.load_state_dict(checkpoint["model_state_dict"])
         print(f"--> Successfully loaded best checkpoint from epoch {checkpoint['epoch']}")
         

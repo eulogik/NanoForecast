@@ -1,2 +1,5 @@
-# NanoForecast: Universal Tiny Time Series Foundation Model
-__version__ = "1.0.0"
+# NanoForecast: World's most deployable time series transformer
+__version__ = "0.1.0"
+
+from nanoforecast.model.core import NanoForecast
+from nanoforecast.config import NanoForecastConfig

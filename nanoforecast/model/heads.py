@@ -97,26 +97,27 @@ class AnomalyDetectionHead(nn.Module):
 
 class DecompositionHead(nn.Module):
     """
-    Decomposition head separating Trend and Seasonality components.
+    Decomposition head separating Trend and Seasonality components on the patch grid.
+    Upsampling to the step grid is performed by the parent model.
     """
-    def __init__(self, num_patches: int, d_model: int, prediction_length: int):
+    def __init__(self, num_patches: int, d_model: int, num_patches_out: int):
         super().__init__()
-        self.prediction_length = prediction_length
-        self.trend_proj = nn.Linear(num_patches * d_model, prediction_length)
-        self.season_proj = nn.Linear(num_patches * d_model, prediction_length)
+        self.num_patches_out = num_patches_out
+        self.trend_proj = nn.Linear(num_patches * d_model, num_patches_out)
+        self.season_proj = nn.Linear(num_patches * d_model, num_patches_out)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             x: Latent representations of shape [BC, num_patches, d_model]
         Returns:
-            trend: Trend prediction of shape [BC, prediction_length]
-            season: Seasonality prediction of shape [BC, prediction_length]
+            trend: Trend prediction of shape [BC, num_patches_out]
+            season: Seasonality prediction of shape [BC, num_patches_out]
         """
         BC, num_patches, d_model = x.shape
         x_flat = x.view(BC, -1)
-        
+
         trend = self.trend_proj(x_flat)
         season = self.season_proj(x_flat)
-        
+
         return trend, season

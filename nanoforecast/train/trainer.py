@@ -24,27 +24,41 @@ class NanoForecastTrainer:
         checkpoint_dir: str = "checkpoints",
         device: Optional[torch.device] = None
     ):
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if device is not None:
+            self.device = device
+        elif torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+        else:
+            self.device = torch.device("cpu")
         self.model = model.to(self.device)
         self.loss_fn = loss_fn
         self.clip_grad = clip_grad
         self.checkpoint_dir = checkpoint_dir
-        
+
         os.makedirs(checkpoint_dir, exist_ok=True)
-        
+
         # Optimizer Setup
         self.optimizer = AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         self.scheduler = None # Set up dynamically based on epochs & steps in fit()
+
+    def _autocast_settings(self):
+        """Return (device_type, autocast_dtype) for the active device."""
+        if isinstance(self.device, torch.device):
+            if self.device.type == "cuda":
+                return "cuda", torch.bfloat16
+            if self.device.type == "mps":
+                # MPS supports bfloat16 autocast since PyTorch 2.0
+                return "cpu", torch.bfloat16  # autocast API takes 'cpu' but works for mps tensors
+        return "cpu", torch.float32
 
     def train_epoch(self, dataloader: torch.utils.data.DataLoader) -> Dict[str, float]:
         self.model.train()
         total_losses = {}
         num_batches = len(dataloader)
-        
-        # Safe device selection for torch.amp.autocast
-        device_type = "cuda" if "cuda" in str(self.device) else "cpu"
-        # Only use bfloat16 if on CUDA
-        autocast_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
+
+        device_type, autocast_dtype = self._autocast_settings()
         
         for batch in dataloader:
             x = batch["x"].to(self.device)
@@ -91,9 +105,8 @@ class NanoForecastTrainer:
         self.model.eval()
         total_losses = {}
         num_batches = len(dataloader)
-        
-        device_type = "cuda" if "cuda" in str(self.device) else "cpu"
-        autocast_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
+
+        device_type, autocast_dtype = self._autocast_settings()
         
         for batch in dataloader:
             x = batch["x"].to(self.device)
