@@ -64,8 +64,8 @@ class MultiTaskLoss(nn.Module):
         # different magnitudes contribute equally.
         median = outputs["median"]
         iqr = outputs["iqr"]
-        target_scaled = (target_y - median) / iqr.clamp(min=1e-5)
-        context_scaled = (context_x - median) / iqr.clamp(min=1e-5)
+        target_scaled = (target_y - median) / iqr.clamp(min=0.1)
+        context_scaled = (context_x - median) / iqr.clamp(min=0.1)
 
         forecast_scaled = outputs["forecast_scaled"]
         quantiles_scaled = outputs["quantiles_scaled"]

@@ -7,7 +7,7 @@ class InstanceRobustScaler(nn.Module):
     Normalizes time series instances using median and Interquartile Range (IQR).
     This handles outliers much better than mean/std scaling.
     """
-    def __init__(self, eps: float = 1e-5):
+    def __init__(self, eps: float = 0.1):
         super().__init__()
         self.eps = eps
 
