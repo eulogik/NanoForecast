@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nanoforecast"
-version = "0.1.0"
+version = "0.2.0"
 description = "Ultra-lightweight time series foundation model architecture (200K-500K params) with Hugging Face Hub integration."
 readme = "README.md"
 license = {text = "Apache-2.0"}

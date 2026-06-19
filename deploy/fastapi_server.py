@@ -28,7 +28,7 @@ from nanoforecast import NanoForecast
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger("nanoforecast-server")
 
-MODEL_REPO = "eulogik/nanoforecast-200k"  # or local path like "checkpoints/nanoforecast-200k"
+MODEL_REPO = "eulogik/nanoforecast-500k"  # or local path like "checkpoints/nanoforecast-500k"
 DEFAULT_CONTEXT = 256
 DEFAULT_HORIZON = 48
 DEFAULT_FREQ = 1

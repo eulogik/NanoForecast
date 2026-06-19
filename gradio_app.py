@@ -24,7 +24,7 @@ from nanoforecast import NanoForecast
 # ---------------------------------------------------------------------------
 # Configuration — change these as needed
 # ---------------------------------------------------------------------------
-MODEL_REPO = "eulogik/nanoforecast-200k"  # public repo on HF Hub
+MODEL_REPO = "eulogik/nanoforecast-500k"  # public repo on HF Hub
 DEFAULT_CONTEXT = 256
 DEFAULT_HORIZON = 48
 DEFAULT_FREQ = 1  # hourly

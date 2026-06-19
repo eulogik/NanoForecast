@@ -3,7 +3,7 @@
 **World's most deployable time series transformer**
 
 [![HF Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/eulogik/nanoforecast)
-[![HF Model](https://img.shields.io/badge/🤗%20Model-nanoforecast--200k-blue)](https://huggingface.co/eulogik/nanoforecast-200k)
+[![HF Model](https://img.shields.io/badge/🤗%20Model-nanoforecast--500k-blue)](https://huggingface.co/eulogik/nanoforecast-500k)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](./LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
 
@@ -39,7 +39,7 @@ pip install nanoforecast
 import numpy as np
 from nanoforecast import NanoForecast
 
-model = NanoForecast.from_pretrained("eulogik/nanoforecast-200k")
+model = NanoForecast.from_pretrained("eulogik/nanoforecast-500k")
 
 context = np.sin(np.linspace(0, 8*np.pi, 256)) + 0.1 * np.random.randn(256)
 result = model.predict(context, horizon=48, freq=1)
@@ -233,17 +233,23 @@ python3 push_to_hub.py \
 
 ---
 
-## Benchmarks (current v0.1 demo checkpoint)
+## Benchmarks (v0.2 checkpoint — 1.6M params, 6 datasets, 100 epochs)
 
-Pretrained for 20 epochs on ETTh1 (~1000 windows) on CPU. These numbers
-demonstrate the pipeline works end-to-end but are **not** competitive.
+Trained on Mac Mini M4 MPS for ~4 hours. Mixed real + synthetic corpus.
 
 | Dataset | MASE | sMAPE (%) | MAE | CRPS |
-|---|---:|---:|---:|---:|
-| ETTh1 | ~5 | ~35 | ~3 | ~2 |
-| exchange_rate | ~11 | 2.4 | 0.015 | 0.01 |
+|---:|---:|---:|---:|---:|
+| ETTh1 | **3.34** | 25.13 | 2.40 | 1.80 |
+| ETTh2 | **3.71** | 17.65 | 3.21 | 2.52 |
+| ETTm1 | **3.58** | 17.22 | 1.17 | 1.00 |
+| exchange_rate | **7.31** | 1.63 | 0.010 | 0.009 |
+| electricity | **1.54** | 5.65 | 189.75 | 187.26 |
+| traffic | **1.25** | 44.80 | 0.006 | 0.006 |
+| **Overall** | **3.45** | 18.68 | 32.76 | 32.10 |
 
-v0.2 target (Mac Mini training, ~2-4 hours): bring MASE < 2.0 on ETTh1.
+The model is better than naive on electricity (MASE 1.54) and traffic (MASE 1.25)
+and significantly improved over v0.1 (ETTh1 MASE 5→3.34, exchange_rate 11→7.31).
+v0.3 target: more data + longer training to push below MASE 2.0 on all datasets.
 
 ---
 

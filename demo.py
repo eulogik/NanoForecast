@@ -17,7 +17,7 @@ import numpy as np
 
 from nanoforecast import NanoForecast
 
-MODEL_SOURCE = "eulogik/nanoforecast-200k"
+MODEL_SOURCE = "eulogik/nanoforecast-500k"
 
 print(f"Loading model from {MODEL_SOURCE}...")
 model = NanoForecast.from_pretrained(MODEL_SOURCE)
