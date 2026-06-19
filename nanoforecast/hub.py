@@ -23,7 +23,7 @@ import torch.nn as nn
 from nanoforecast.config import NanoForecastConfig
 
 if TYPE_CHECKING:
-    from nanoforecast.model.core import NanoForecast
+    from nanoforecast.model.core import NanoForecast, StreamingState
 
 
 _FREQ_ALIASES = {
@@ -127,6 +127,7 @@ class NanoForecastHubMixin:
         freq: Union[str, int, None] = "H",
         return_components: bool = True,
         num_samples: int = 1,
+        return_state: bool = False,
     ) -> Dict[str, np.ndarray]:
         """Run a single-call forecast on a 1-D or 2-D context.
 
@@ -137,13 +138,17 @@ class NanoForecastHubMixin:
             freq: frequency alias (e.g. "H", "D") or integer freq_id.
             return_components: include trend/seasonal/residual arrays.
             num_samples: number of stochastic sample draws (1 = deterministic).
+            return_state: if True, also returns a ``StreamingState`` that can be
+                          passed to ``predict_step`` for online inference.
 
         Returns:
             dict with keys:
                 forecast: ``(..., horizon)`` point forecast.
                 quantiles: ``(..., Q, horizon)`` quantile forecasts (Q=5 by default).
                 trend, seasonal, residual: same shape as forecast (only if ``return_components``).
+                state: ``StreamingState`` (only if ``return_state=True``).
         """
+        from nanoforecast.model.core import StreamingState
         device = next(self.parameters()).device
         ctx = _to_tensor(context, dtype=torch.float32)
         if ctx.ndim == 1:
@@ -167,8 +172,88 @@ class NanoForecastHubMixin:
             device=device,
         ) if cfg.covariate_dim > 0 else None
 
-        out = self(ctx, freq_ids, covariates)
+        if return_state:
+            delta_states: List = []
+            out = self.forward_stream(ctx, freq_ids, delta_states, covariates)
+            scaler_out = self.scaler(ctx)
+            state = StreamingState(
+                buffer=ctx.clone(),
+                median=scaler_out[1],
+                iqr=scaler_out[2],
+                delta_states=delta_states,
+                num_patches_seen=cfg.context_length,
+            )
+        else:
+            out = self(ctx, freq_ids, covariates)
+
         result: Dict[str, np.ndarray] = {
+            "forecast": out["forecast"].squeeze(1).cpu().numpy(),
+            "quantiles": out["quantiles"].squeeze(1).cpu().numpy(),
+        }
+        if return_components:
+            result["trend"] = out["trend"].squeeze(1).cpu().numpy()
+            result["seasonal"] = out["seasonal"].squeeze(1).cpu().numpy()
+            result["residual"] = out["residual"].squeeze(1).cpu().numpy()
+        if return_state:
+            result["state"] = state
+        return result
+
+
+    # ---------------- Streaming / Online Inference ----------------
+    @torch.no_grad()
+    def predict_step(
+        self,
+        value: Union[float, np.ndarray],
+        state: StreamingState,
+        horizon: int = 48,
+        freq: Union[str, int, None] = "H",
+        return_components: bool = True,
+    ) -> Dict:
+        """Stream one new observation and update the forecast.
+
+        Call ``predict()`` first to get the initial ``StreamingState``, then
+        call ``predict_step()`` repeatedly as new data arrives:
+
+        .. code-block:: python
+
+            result = model.predict(context, horizon=48)
+            state = result.pop("state")
+            for val in incoming_stream:
+                result = model.predict_step(val, state)
+
+        Each call appends *value* to the rolling buffer, updates the
+        DeltaNet recurrent states (preserving memory of all past data),
+        and returns a fresh forecast.
+
+        Args:
+            value: Scalar or 1-D array of new observations.
+            state: ``StreamingState`` returned by the previous ``predict()``
+                   or ``predict_step()`` call (mutated in-place).
+            horizon: Forecast horizon.
+            freq: Frequency alias or integer freq_id.
+            return_components: Include trend/seasonal/residual if True.
+
+        Returns:
+            dict with keys ``forecast``, ``quantiles``, and optionally
+            ``trend``, ``seasonal``, ``residual``.
+        """
+        device = next(self.parameters()).device
+        cfg = self.config
+
+        val_arr = np.atleast_1d(np.asarray(value, dtype=np.float32))
+        for v in val_arr:
+            # Roll buffer: drop oldest, append new
+            state.buffer = torch.cat([state.buffer[:, :, 1:], torch.full((1, 1, 1), v, device=device)], dim=-1)
+            state.num_patches_seen += 1
+
+        ctx = state.buffer.to(device)
+        freq_id = _resolve_freq(freq, default=1)
+        freq_ids = torch.full((1,), freq_id, dtype=torch.long, device=device)
+        covariates = torch.zeros((1, cfg.covariate_dim, cfg.context_length), dtype=torch.float32, device=device)
+
+        out = self.forward_stream(ctx, freq_ids, state.delta_states, covariates)
+
+        result: Dict = {
             "forecast": out["forecast"].squeeze(1).cpu().numpy(),
             "quantiles": out["quantiles"].squeeze(1).cpu().numpy(),
         }
@@ -181,6 +266,6 @@ class NanoForecastHubMixin:
 
 def attach_hub_methods(model_cls: type) -> type:
     """Decorator-like helper that mixes Hub methods onto the model class."""
-    for name in ("save_pretrained", "from_pretrained", "predict"):
+    for name in ("save_pretrained", "from_pretrained", "predict", "predict_step"):
         setattr(model_cls, name, getattr(NanoForecastHubMixin, name))
     return model_cls

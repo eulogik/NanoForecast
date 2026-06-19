@@ -44,6 +44,11 @@ class LongConvolution(nn.Module):
         return out.transpose(1, 2)
 
 
+class DeltaNetState:
+    """Recurrent state for a single DeltaNet block during streaming inference."""
+    def __init__(self, batch_size: int, d_model: int, device: torch.device, dtype: torch.dtype):
+        self.W = torch.zeros(batch_size, d_model, d_model, device=device, dtype=dtype)
+
 class DeltaNetBlock(nn.Module):
     """
     DeltaNet block implementing linear RNN state updates using the delta rule.
@@ -71,35 +76,60 @@ class DeltaNetBlock(nn.Module):
         B, L, D = x.shape
         
         Q = self.q_proj(x) # [B, L, D]
-        # Normalize Keys to prevent gradient/value explosion
         K = F.normalize(self.k_proj(x), p=2, dim=-1) # [B, L, D]
         V = self.v_proj(x) # [B, L, D]
         Beta = torch.sigmoid(self.beta_proj(x)) # [B, L, 1]
         
-        # Recurrent state update W of shape [B, D, D] initialized to zero
         W = torch.zeros(B, D, D, device=x.device, dtype=x.dtype)
         outputs = []
         
-        # Recurrence loop
         for t in range(L):
-            q_t = Q[:, t, :].unsqueeze(-1) # [B, D, 1]
-            k_t = K[:, t, :].unsqueeze(-1) # [B, D, 1]
-            v_t = V[:, t, :].unsqueeze(-1) # [B, D, 1]
-            beta_t = Beta[:, t, :].unsqueeze(-1) # [B, 1, 1]
-            
-            # Reconstructed value: W_{t-1} @ k_t
-            v_pred = torch.matmul(W, k_t) # [B, D, 1]
-            
-            # Delta rule update: W_t = W_{t-1} + beta_t * (v_t - v_pred) @ k_t^T
-            delta = beta_t * torch.matmul((v_t - v_pred), k_t.transpose(-1, -2)) # [B, D, D]
+            q_t = Q[:, t, :].unsqueeze(-1)
+            k_t = K[:, t, :].unsqueeze(-1)
+            v_t = V[:, t, :].unsqueeze(-1)
+            beta_t = Beta[:, t, :].unsqueeze(-1)
+            v_pred = torch.matmul(W, k_t)
+            delta = beta_t * torch.matmul((v_t - v_pred), k_t.transpose(-1, -2))
             W = W + delta
-            
-            # Retrieve output: y_t = W_t @ q_t
-            y_t = torch.matmul(W, q_t) # [B, D, 1]
+            y_t = torch.matmul(W, q_t)
             outputs.append(y_t.squeeze(-1))
             
-        out_rnn = torch.stack(outputs, dim=1) # [B, L, D]
+        out_rnn = torch.stack(outputs, dim=1)
         return self.out_proj(out_rnn)
+
+    def forward_with_state(
+        self, x: torch.Tensor, state: DeltaNetState
+    ) -> torch.Tensor:
+        """Run forward pass while carrying/preserving the DeltaNet state.
+
+        Processes all timesteps in ``x`` starting from ``state``, then
+        writes back the final state so callers can chain calls.
+
+        Args:
+            x: Input tensor of shape ``[B, L, D]``.
+            state: ``DeltaNetState`` carrying the recurrent memory.
+        Returns:
+            out: RNN state-sequence output ``[B, L, D]``.
+        """
+        B, L, D = x.shape
+        Q = self.q_proj(x)
+        K = F.normalize(self.k_proj(x), p=2, dim=-1)
+        V = self.v_proj(x)
+        Beta = torch.sigmoid(self.beta_proj(x))
+        W = state.W
+        outputs = []
+        for t in range(L):
+            q_t = Q[:, t, :].unsqueeze(-1)
+            k_t = K[:, t, :].unsqueeze(-1)
+            v_t = V[:, t, :].unsqueeze(-1)
+            beta_t = Beta[:, t, :].unsqueeze(-1)
+            v_pred = torch.matmul(W, k_t)
+            delta = beta_t * torch.matmul((v_t - v_pred), k_t.transpose(-1, -2))
+            W = W + delta
+            y_t = torch.matmul(W, q_t)
+            outputs.append(y_t.squeeze(-1))
+        state.W = W
+        return self.out_proj(torch.stack(outputs, dim=1))
 
 
 class GatedMLP(nn.Module):
@@ -181,7 +211,6 @@ class SequenceMixingBlock(nn.Module):
         Args:
             x: Input of shape [B, L, D]
         """
-        # Run sub-modules with residual connections and norms
         out_conv = self.conv(self.norm1(x))
         out_rnn = self.rnn(self.norm2(x))
         out_mlp = self.mlp(self.norm3(x))
@@ -189,7 +218,37 @@ class SequenceMixingBlock(nn.Module):
         if self.use_router:
             routed = self.router(x, out_conv, out_rnn, out_mlp)
         else:
-            # Equal weighting baseline
             routed = (out_conv + out_rnn + out_mlp) / 3.0
             
+        return x + routed
+
+    def forward_stream(
+        self,
+        x: torch.Tensor,
+        delta_state: DeltaNetState,
+        skip_conv: bool = False,
+    ) -> torch.Tensor:
+        """Incremental forward pass preserving DeltaNet state.
+
+        Args:
+            x: Input of shape ``[B, L, D]``.
+            delta_state: ``DeltaNetState`` for this block (mutated in-place).
+            skip_conv: If ``True``, zero out the convolution branch (used when
+                       the input is a partial sequence that can't be convolved
+                       with the learned full-length filter).
+        Returns:
+            routed output ``[B, L, D]``.
+        """
+        if skip_conv:
+            out_conv = torch.zeros_like(x)
+        else:
+            out_conv = self.conv(self.norm1(x))
+        out_rnn = self.rnn.forward_with_state(self.norm2(x), delta_state)
+        out_mlp = self.mlp(self.norm3(x))
+
+        if self.use_router:
+            routed = self.router(x, out_conv, out_rnn, out_mlp)
+        else:
+            routed = (out_conv + out_rnn + out_mlp) / 3.0
+
         return x + routed

@@ -17,7 +17,7 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 ## Milestones
 
 | # | Milestone | Status | Est. time | Impact |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | 1 | Walkthrough + plan | ✅ Done | 10 min | Alignment |
 | 2 | Gradio Space app | ✅ Done | 20 min | Viral demo (#1 driver) |
 | 3 | FastAPI + Docker deploy | ✅ Done | 20 min | Production story |
@@ -26,9 +26,11 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 | 6 | Rewrite README | ✅ Done | 15 min | First impression |
 | 7 | Gradio Space live on HF | ✅ Done | 30 min | Try in browser |
 | 8 | Training runbook + assistant prompt | ✅ Done | 15 min | Mac Mini prep |
-| 9 | Mac Mini training: v0.2 checkpoint | 🔲 (20–35h) | Days | Real accuracy |
-| 10 | arXiv paper (after v0.2) | 🔲 | — | Credibility |
-| 11 | OpenRouter listing | 🔲 After v0.2 | — | Revenue |
+| 9 | **Streaming inference API** | ✅ Done | — | **Unique differentiator** |
+| 10 | **train_from_csv.py CLI** | ✅ Done | — | **Primary UX path** |
+| 11 | Mac Mini training: v0.2 checkpoint | 🔲 (20–35h) | Days | Real accuracy |
+| 12 | arXiv paper (after v0.2) | 🔲 | — | Credibility |
+| 13 | OpenRouter listing | 🔲 After v0.2 | — | Revenue |
 
 ---
 
@@ -64,6 +66,16 @@ arXiv preprint: "NanoForecast: A Deployable Time Series Transformer Under 1M Par
 - ONNX/deploy pipeline as contribution
 
 ## What Makes This Wantable
+
+**For developers with CSV data:**
+- `python3 train_from_csv.py --csv sales.csv --target revenue --horizon 48`
+- Custom model trained on your data in 2 minutes — no GPU, no cloud
+- No need to think about zero-shot vs fine-tuning — it just trains on your data
+
+**For real-time / streaming use cases:**
+- Only TS model with stateful online inference — feed one value at a time
+- DeltaNet RNN carries memory across calls; no other architecture does this
+- IoT sensor monitoring, live financial data, interactive dashboards
 
 **For GitHub users:**
 - `pip install nanoforecast` works

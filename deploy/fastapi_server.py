@@ -90,6 +90,10 @@ def predict(
         True,
         description="If true, return trend/seasonal/residual decomposition.",
     ),
+    return_state: bool = Form(
+        False,
+        description="If true, return a state token for streaming predict_step calls.",
+    ),
 ):
     model = get_model()
     try:
@@ -107,10 +111,11 @@ def predict(
     t0 = time.time()
     ctx = series[-model.config.context_length:]
     result = model.predict(ctx, horizon=horizon, freq=freq,
-                           return_components=return_components)
+                           return_components=return_components,
+                           return_state=return_state)
     dt = time.time() - t0
 
-    response = {
+    response: dict = {
         "forecast": result["forecast"][0].tolist(),
         "quantiles": {
             "p10": result["quantiles"][0, :, 0].tolist(),
@@ -131,7 +136,59 @@ def predict(
             "residual": result["residual"][0].tolist(),
         }
 
+    if return_state and "state" in result:
+        state = result["state"]
+        response["streaming_state"] = {
+            "buffer": state.buffer.squeeze().tolist(),
+            "num_patches_seen": state.num_patches_seen,
+        }
     return response
+
+
+@app.post("/predict_stream")
+def predict_stream(
+    value: str = Form(..., description="Single new observation (float)."),
+    buffer: str = Form(..., description="Current rolling buffer as JSON array of floats."),
+    delta_states: str = Form(..., description="Placeholder — pass empty list [] for now."),
+    horizon: int = Form(DEFAULT_HORIZON),
+    freq: int = Form(DEFAULT_FREQ),
+):
+    """Stream one value and return an updated forecast.
+
+    Client sends the current rolling buffer plus the new value.
+    The server returns the forecast, and the client is responsible
+    for maintaining the buffer for the next call.
+
+    For a minimal demo, this avoids server-side session management.
+    The DeltaNet state is rebuilt from the buffer on each call
+    (future work: serialize DeltaNet states to enable true stateless streaming).
+    """
+    model = get_model()
+    try:
+        val = float(json.loads(value) if isinstance(value, str) and value.startswith("[") else value)
+        buf = np.array(json.loads(buffer), dtype=np.float32)
+    except (ValueError, json.JSONDecodeError):
+        raise HTTPException(400, "value and buffer must be valid")
+
+    # Append new value and trim to context length
+    buf = np.append(buf, val)
+    if len(buf) > model.config.context_length:
+        buf = buf[-model.config.context_length:]
+
+    t0 = time.time()
+    result = model.predict(buf, horizon=horizon, freq=freq)
+    dt = time.time() - t0
+
+    return {
+        "forecast": result["forecast"][0].tolist(),
+        "quantiles": {
+            "p10": result["quantiles"][0, :, 0].tolist(),
+            "p50": result["quantiles"][0, :, 2].tolist(),
+            "p90": result["quantiles"][0, :, 4].tolist(),
+        },
+        "inference_time_s": round(dt, 4),
+        "buffer_remaining": len(buf),
+    }
 
 
 @app.post("/predict_csv")

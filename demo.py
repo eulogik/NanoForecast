@@ -3,8 +3,13 @@
 Usage:
   python3 demo.py
 
-Loads a pretrained checkpoint and generates a forecast.
-After pushing to HF Hub, change MODEL_SOURCE to your repo ID.
+Loads a pretrained checkpoint and demonstrates all features:
+  - One-shot predict
+  - Streaming / online inference
+  - Decomposition
+
+For training on your own data:
+  python3 train_from_csv.py --csv my_data.csv --target sales --horizon 48
 """
 from __future__ import annotations
 
@@ -12,28 +17,34 @@ import numpy as np
 
 from nanoforecast import NanoForecast
 
-MODEL_SOURCE = "eulogik/nanoforecast-200k"  # or local "checkpoints/nanoforecast-200k"
+MODEL_SOURCE = "eulogik/nanoforecast-200k"
 
-print(f"🔮 NanoForecast — Loading model from {MODEL_SOURCE}...")
+print(f"Loading model from {MODEL_SOURCE}...")
 model = NanoForecast.from_pretrained(MODEL_SOURCE)
+cfg = model.config
 
-t = np.linspace(0, 8 * np.pi, model.config.context_length)
-context = np.sin(t) + 0.1 * np.random.randn(model.config.context_length)
+t = np.linspace(0, 8 * np.pi, cfg.context_length)
+context = np.sin(t) + 0.1 * np.random.randn(cfg.context_length)
 
-print("📊 Forecasting 48 steps ahead...")
+# --- One-shot forecast ---
+print("One-shot forecast (48 steps)...")
 result = model.predict(context, horizon=48, freq=1, return_components=True)
+print(f"  Forecast (first 10): {result['forecast'][0, :10].round(4).tolist()}")
 
-print(f"\n✅ Forecast (first 10 steps): {result['forecast'][0, :10].round(4).tolist()}")
-print(f"   Mean: {result['forecast'].mean():.4f}")
-print(f"   Std:  {result['forecast'].std():.4f}")
+# --- Streaming inference ---
+print("Streaming inference (8 steps, one at a time)...")
+result = model.predict(context, horizon=48, freq=1, return_state=True)
+state = result["state"]
+for i in range(8):
+    new_val = float(np.sin(8 * np.pi + i * 0.2) + 0.1 * np.random.randn())
+    step = model.predict_step(new_val, state, horizon=48, freq=1)
+print(f"  Final forecast (first 10): {step['forecast'][0, :10].round(4).tolist()}")
 
-if result.get("trend") is not None:
-    print(f"   Trend component — last 10: {result['trend'][0, -10:].round(4).tolist()}")
-    print(f"   Seasonal component — last 10: {result['seasonal'][0, -10:].round(4).tolist()}")
-
-print("\n🎯 Model loaded and predicted successfully!")
-print("   Next steps:")
-print("   - Try your own data:   model.predict(my_series, horizon=H)")
-print("   - Deploy via FastAPI:  pip install fastapi uvicorn && python3 deploy/fastapi_server.py")
-print("   - Export to ONNX:      python3 -m nanoforecast.export.onnx_export")
-print("   - Train on your data:  python3 pretrain.py --data your_data.csv")
+print()
+print("Next steps:")
+print("  Train on your data:")
+print("    python3 train_from_csv.py --csv sales.csv --target revenue --horizon 48")
+print("  Deploy:")
+print("    python3 deploy/fastapi_server.py")
+print("  Export to ONNX:")
+print("    python3 -m nanoforecast.export.onnx_export")

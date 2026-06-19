@@ -9,7 +9,8 @@
 
 NanoForecast is a **tiny, fast, deployable** time series forecasting model. Unlike foundation models that require GPUs and terabytes of data, NanoForecast:
 
-- **Trains in 20 minutes** on a MacBook Air (no GPU needed)
+- **Trains on your data in 2 minutes** — `python3 train_from_csv.py --csv sales.csv --target revenue`
+- **Streams forecasts online** — the only TS model where you can feed one value at a time
 - **Runs on a Raspberry Pi** (<50ms inference on ARM)
 - **Exports to 1.4 MB ONNX** (Edge/IoT/browser ready)
 - **Fully Apache 2.0** — no strings attached
@@ -19,6 +20,16 @@ It's **not** a foundation model. It's not going to beat TimesFM on benchmarks. W
 ---
 
 ## Quick Start
+
+### Train on your own data (primary path)
+
+```bash
+python3 train_from_csv.py --csv my_data.csv --target sales --horizon 48
+```
+
+That's it. You get a saved model checkpoint + forecast CSV. No GPU, no cloud.
+
+### Or use the pretrained model
 
 ```bash
 pip install nanoforecast
@@ -35,6 +46,26 @@ result = model.predict(context, horizon=48, freq=1)
 forecast = result["forecast"][0]  # shape (48,)
 ```
 
+## Streaming / Online Inference (unique to NanoForecast)
+
+NanoForecast's DeltaNet RNN architecture maintains a recurrent state across calls — no other TS model does this.
+
+```python
+# Initial forecast + state
+result = model.predict(context, horizon=48, return_state=True)
+state = result.pop("state")
+
+# Stream new observations one at a time
+for new_val in incoming_data_stream:
+    result = model.predict_step(new_val, state, horizon=48)
+    print(result["forecast"][0, :5])  # updated forecast instantly
+```
+
+Each call preserves the DeltaNet's memory of all past data. Use it for:
+- **Real-time IoT sensor monitoring**
+- **Live financial tick data**
+- **Interactive dashboards**
+
 ## Try It Now
 
 [![Open in HF Spaces](https://img.shields.io/badge/🤗%20Open%20in%20Spaces-blueviolet)](https://huggingface.co/spaces/eulogik/nanoforecast)
@@ -44,7 +75,7 @@ Upload a CSV, set your horizon, get a forecast + prediction intervals + decompos
 ## Features
 
 | Feature | Details |
-|---|---|
+|---|---|---|
 | **Architecture** | LongConv + DeltaNet RNN + gated router + MLP blocks |
 | **Parameters** | ~200K–700K (tiny) |
 | **Outputs** | Point forecast + 5 quantiles (p10/p25/p50/p75/p90) + trend/seasonal/residual decomposition |
@@ -52,6 +83,8 @@ Upload a CSV, set your horizon, get a forecast + prediction intervals + decompos
 | **Horizon** | Any length (trained on 48) |
 | **Frequency** | Hourly / Daily / Weekly / Monthly |
 | **Deploy targets** | CPU, ARM, Raspberry Pi, Lambda, iOS, browser (via ONNX.js) |
+| **Streaming inference** | Stateful RNN — feed one value at a time, no re-processing |
+| **Train on your data** | `train_from_csv.py` — 2 min on a laptop, no GPU |
 
 ## Deploy
 
@@ -128,6 +161,7 @@ pretrain.py              # real + synthetic pretraining CLI
 benchmark.py             # multi-dataset benchmark CLI
 push_to_hub.py           # publish a checkpoint to the HF Hub
 run_pipeline.py          # synthetic-only smoke pipeline (legacy)
+train_from_csv.py        # train on your own CSV (primary user path)
 tests/                   # unit + smoke tests
 ```
 
@@ -230,7 +264,7 @@ This is a **developer tool**, not a research paper. It prioritizes deployability
 | Version | Focus | Timeline |
 |---|---|---|
 | v0.1 | Deployable MVP — train, predict, export, deploy | ✅ Done |
-| v0.2 | Better training — multi-dataset, longer, MPS | Next (Mac Mini) |
+| v0.2 | Streaming inference + train-from-CSV CLI + multi-dataset training (Mac Mini) | ✅ Code done, training pending |
 | v0.3 | ONNX.js browser demo, iOS Swift package | TBD |
 | v0.4 | OpenRouter API — $0.001/forecast | TBD |
 

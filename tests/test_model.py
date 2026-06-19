@@ -5,7 +5,7 @@ import torch
 import numpy as np
 
 from nanoforecast.config import NanoForecastConfig
-from nanoforecast.model.core import NanoForecast
+from nanoforecast.model.core import NanoForecast, StreamingState
 from nanoforecast.model.utils import InstanceRobustScaler
 from nanoforecast.model.heads import MonotonicQuantileHead
 
@@ -111,6 +111,38 @@ def test_hub_save_load_roundtrip():
 
     assert np.allclose(out1["forecast"], out2["forecast"], atol=1e-5)
     assert np.allclose(out1["quantiles"], out2["quantiles"], atol=1e-5)
-    # Quantiles must remain monotonic after round-trip
     p10, p25, p50, p75, p90 = (out2["quantiles"][0, i] for i in range(5))
     assert np.all(p10 <= p25) and np.all(p25 <= p50) and np.all(p50 <= p75) and np.all(p75 <= p90)
+
+
+def test_streaming_inference():
+    config = NanoForecastConfig(
+        context_length=64, prediction_length=12, d_model=16, num_layers=2,
+        patch_size=4, covariate_dim=0,
+    )
+    model = NanoForecast(config)
+    model.eval()
+
+    ctx = np.sin(np.linspace(0, 4 * np.pi, config.context_length)).astype(np.float32)
+    result = model.predict(ctx, horizon=config.prediction_length, freq="H", return_state=True)
+    assert "state" in result
+    state = result["state"]
+    assert isinstance(state, StreamingState)
+    assert len(state.delta_states) == config.num_layers
+
+    fore0 = result["forecast"].copy()
+
+    # Stream 8 new values one at a time — forecasts should change smoothly
+    forecasts = [fore0]
+    for i in range(8):
+        new_val = float(np.sin(4 * np.pi + i * 0.1))
+        step_result = model.predict_step(new_val, state, horizon=config.prediction_length, freq="H")
+        assert "forecast" in step_result
+        forecasts.append(step_result["forecast"].copy())
+
+    # Each step should produce a valid forecast (no NaNs, finite)
+    for f in forecasts:
+        assert np.all(np.isfinite(f))
+    # Forecasts should change (consecutive forecasts shouldn't be identical)
+    diffs = [np.abs(forecasts[i+1] - forecasts[i]).mean() for i in range(len(forecasts)-1)]
+    assert any(d > 1e-6 for d in diffs), "Streaming forecasts should not be identical"

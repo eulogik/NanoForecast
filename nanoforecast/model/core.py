@@ -1,12 +1,32 @@
+import copy
 import torch
 import torch.nn as nn
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from nanoforecast.config import NanoForecastConfig
 from nanoforecast.model.utils import InstanceRobustScaler, ResolutionPrefixEmbedding, AdaptivePatching, PatchPositionalEncoding
-from nanoforecast.model.blocks import SequenceMixingBlock
+from nanoforecast.model.blocks import SequenceMixingBlock, DeltaNetState
 from nanoforecast.model.heads import PointForecastHead, MonotonicQuantileHead, AnomalyDetectionHead, DecompositionHead
 from nanoforecast.hub import NanoForecastHubMixin
+
+
+class StreamingState:
+    """Mutable state for streaming inference, carried across ``predict_step`` calls.
+
+    Attributes:
+        buffer: Rolling window of raw values (length = ``context_length``).
+        median, iqr: Scalers computed from the initial context.
+        delta_states: Per-layer ``DeltaNetState``.
+        num_patches_seen: Counter used to detect when a new patch is ready.
+        raw_buffer: Rolling window of *unscaled* values for scaler update.
+    """
+    def __init__(self, buffer: torch.Tensor, median: torch.Tensor, iqr: torch.Tensor,
+                 delta_states: List[DeltaNetState], num_patches_seen: int):
+        self.buffer = buffer
+        self.median = median
+        self.iqr = iqr
+        self.delta_states = delta_states
+        self.num_patches_seen = num_patches_seen
 
 class NanoForecast(NanoForecastHubMixin, nn.Module):
     """
@@ -140,4 +160,86 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
             "seasonal": seasonal,
             "residual": residual,
             "trend_scaled_patches": trend_scaled_patches,
+            "latent_features": latent_features,
+        }
+
+    @torch.no_grad()
+    def forward_stream(
+        self,
+        x: torch.Tensor,
+        freq_ids: torch.Tensor,
+        delta_states: List[DeltaNetState],
+        covariates: Optional[torch.Tensor] = None,
+    ) -> Dict[str, torch.Tensor]:
+        """Incremental forward pass that preserves DeltaNet states across calls.
+
+        Same outputs as ``forward()`` but accepts a list of per-layer
+        ``DeltaNetState`` objects that are mutated in-place, allowing the
+        recurrent memory to carry across successive calls.
+
+        ``delta_states`` must be an empty list or a list of ``num_layers``
+        previously-obtained states (e.g. from a prior ``forward_stream`` call).
+        If empty, fresh zero-states are created internally.
+        """
+        B, C, L = x.shape
+        x_scaled, median, iqr = self.scaler(x)
+        patches, padding_len = self.patcher(x_scaled)
+
+        if covariates is not None and self.config.covariate_dim > 0:
+            if padding_len > 0:
+                covariates = torch.nn.functional.pad(covariates, (0, padding_len), mode="constant", value=0)
+            cov_dim = covariates.shape[1]
+            cov_unfolded = covariates.view(B, cov_dim, self.num_patches, self.patch_size)
+            cov_unfolded = cov_unfolded.permute(0, 2, 1, 3).contiguous()
+            cov_unfolded = cov_unfolded.view(B, self.num_patches, cov_dim * self.patch_size)
+            cov_repeated = cov_unfolded.repeat_interleave(C, dim=0)
+            patches = patches + self.covariate_projection(cov_repeated)
+
+        freq_ids_repeated = freq_ids.repeat_interleave(C, dim=0)
+        prefix = self.freq_embedder(freq_ids_repeated)
+        seq = torch.cat([prefix, patches], dim=1)
+        seq = self.pos_encoder(seq)
+
+        batch_prod = B * C
+        if len(delta_states) == 0:
+            for layer in self.layers:
+                ds = DeltaNetState(batch_prod, self.d_model, x.device, x.dtype)
+                seq = layer.forward_stream(seq, ds, skip_conv=False)
+                delta_states.append(ds)
+        else:
+            for layer, ds in zip(self.layers, delta_states):
+                seq = layer.forward_stream(seq, ds, skip_conv=False)
+
+        seq = self.final_norm(seq)
+        latent_features = seq[:, 1:, :]
+
+        pred_scaled = self.point_head(latent_features)
+        quantiles_scaled = self.quantile_head(latent_features)
+        recon_scaled = self.anomaly_head(latent_features)
+        trend_p, season_p = self.decomp_head(latent_features)
+        trend_s = self.trend_upsample(trend_p)
+        season_s = self.season_upsample(season_p)
+        residual_s = pred_scaled - trend_s - season_s
+
+        pred_scaled = pred_scaled.view(B, C, self.config.prediction_length)
+        quantiles_scaled = quantiles_scaled.view(B, C, 5, self.config.prediction_length)
+        recon_scaled = recon_scaled.view(B, C, self.config.context_length)
+        trend_s = trend_s.view(B, C, self.config.prediction_length)
+        season_s = season_s.view(B, C, self.config.prediction_length)
+        residual_s = residual_s.view(B, C, self.config.prediction_length)
+
+        pred = InstanceRobustScaler.inverse_transform(pred_scaled, median, iqr)
+        quantiles = InstanceRobustScaler.inverse_transform(quantiles_scaled, median, iqr)
+        reconstructed = InstanceRobustScaler.inverse_transform(recon_scaled, median, iqr)
+        trend = trend_s * iqr + median
+        seasonal = season_s * iqr
+        residual = residual_s * iqr
+
+        return {
+            "forecast": pred,
+            "quantiles": quantiles,
+            "reconstructed": reconstructed,
+            "trend": trend,
+            "seasonal": seasonal,
+            "residual": residual,
         }
