@@ -2,7 +2,7 @@ You are training the v0.2 checkpoint of NanoForecast — a tiny time series tran
 
 ## Setup (run once)
 ```bash
-cd ~/Code/NanoForecast
+cd ~/Documents/nano-forecast
 git pull
 python3 -m venv .venv
 source .venv/bin/activate

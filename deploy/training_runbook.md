@@ -7,9 +7,8 @@ Target: MASE < 2.0 on ETTh1, sensible forecasts on all datasets.
 ## Prerequisites on the Mac Mini
 
 ```bash
-# Clone the repo
-git clone https://github.com/eulogik/NanoForecast.git
-cd NanoForecast
+cd ~/Documents/nano-forecast
+git pull
 
 # Set up environment
 python3 -m venv .venv
