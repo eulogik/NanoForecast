@@ -16,8 +16,8 @@ class MultiTaskLoss(nn.Module):
         self,
         quantiles: List[float],
         w_point: float = 0.5,
-        w_quantile: float = 2.0,
-        w_anomaly: float = 0.25,
+        w_quantile: float = 1.0,
+        w_anomaly: float = 0.1,
         w_smooth: float = 0.05,
     ):
         super().__init__()

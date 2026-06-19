@@ -123,7 +123,7 @@ def main() -> None:
 
     loss_fn = MultiTaskLoss(
         quantiles=config.quantiles,
-        w_point=0.5, w_quantile=2.0, w_anomaly=0.25, w_smooth=0.05,
+        w_point=0.5, w_quantile=1.0, w_anomaly=0.1, w_smooth=0.05,
     )
     trainer = NanoForecastTrainer(
         model=model, loss_fn=loss_fn, lr=3e-4,

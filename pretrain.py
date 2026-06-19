@@ -141,8 +141,8 @@ def main() -> None:
     loss_fn = MultiTaskLoss(
         quantiles=config.quantiles,
         w_point=0.5,
-        w_quantile=2.0,
-        w_anomaly=0.25,
+        w_quantile=1.0,
+        w_anomaly=0.1,
         w_smooth=0.05,
     )
 

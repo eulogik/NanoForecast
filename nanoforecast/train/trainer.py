@@ -49,8 +49,7 @@ class NanoForecastTrainer:
             if self.device.type == "cuda":
                 return "cuda", torch.bfloat16
             if self.device.type == "mps":
-                # MPS supports bfloat16 autocast since PyTorch 2.0
-                return "cpu", torch.bfloat16  # autocast API takes 'cpu' but works for mps tensors
+                return "cpu", torch.float32  # MPS bf16 autocast is unstable
         return "cpu", torch.float32
 
     def train_epoch(self, dataloader: torch.utils.data.DataLoader) -> Dict[str, float]:
@@ -68,16 +67,10 @@ class NanoForecastTrainer:
             
             self.optimizer.zero_grad(set_to_none=True)
             
-            # Context window for loss comparison
-            # (since we normalise inputs robustly inside model, loss_fn wants context_x normalized)
-            # We fetch x scaled using scaler to compare
-            with torch.no_grad():
-                x_scaled, _, _ = self.model.scaler(x)
-                
             # Forward pass with mixed precision
             with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
                 outputs = self.model(x, freq_ids, covariates)
-                loss, loss_dict = self.loss_fn(outputs, y, x_scaled)
+                loss, loss_dict = self.loss_fn(outputs, y, x)  # pass raw x (anomaly loss compares like-for-like)
                 
             # Backward pass
             loss.backward()
@@ -114,11 +107,9 @@ class NanoForecastTrainer:
             freq_ids = batch["freq_id"].to(self.device)
             covariates = batch["covariates"].to(self.device) if "covariates" in batch else None
             
-            x_scaled, _, _ = self.model.scaler(x)
-            
             with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
                 outputs = self.model(x, freq_ids, covariates)
-                _, loss_dict = self.loss_fn(outputs, y, x_scaled)
+                _, loss_dict = self.loss_fn(outputs, y, x)  # pass raw x
                 
             for k, v in loss_dict.items():
                 val_key = f"val_{k}"
