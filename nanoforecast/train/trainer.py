@@ -58,6 +58,7 @@ class NanoForecastTrainer:
         num_batches = len(dataloader)
 
         device_type, autocast_dtype = self._autocast_settings()
+        use_amp = autocast_dtype in (torch.bfloat16, torch.float16)
         
         for batch in dataloader:
             x = batch["x"].to(self.device)
@@ -67,10 +68,14 @@ class NanoForecastTrainer:
             
             self.optimizer.zero_grad(set_to_none=True)
             
-            # Forward pass with mixed precision
-            with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
+            # Forward pass with mixed precision (disabled for float32)
+            if use_amp:
+                with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
+                    outputs = self.model(x, freq_ids, covariates)
+                    loss, loss_dict = self.loss_fn(outputs, y, x)
+            else:
                 outputs = self.model(x, freq_ids, covariates)
-                loss, loss_dict = self.loss_fn(outputs, y, x)  # pass raw x (anomaly loss compares like-for-like)
+                loss, loss_dict = self.loss_fn(outputs, y, x)
                 
             # Backward pass
             loss.backward()
@@ -100,6 +105,7 @@ class NanoForecastTrainer:
         num_batches = len(dataloader)
 
         device_type, autocast_dtype = self._autocast_settings()
+        use_amp = autocast_dtype in (torch.bfloat16, torch.float16)
         
         for batch in dataloader:
             x = batch["x"].to(self.device)
@@ -107,9 +113,13 @@ class NanoForecastTrainer:
             freq_ids = batch["freq_id"].to(self.device)
             covariates = batch["covariates"].to(self.device) if "covariates" in batch else None
             
-            with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
+            if use_amp:
+                with torch.amp.autocast(device_type=device_type, dtype=autocast_dtype):
+                    outputs = self.model(x, freq_ids, covariates)
+                    _, loss_dict = self.loss_fn(outputs, y, x)
+            else:
                 outputs = self.model(x, freq_ids, covariates)
-                _, loss_dict = self.loss_fn(outputs, y, x)  # pass raw x
+                _, loss_dict = self.loss_fn(outputs, y, x)
                 
             for k, v in loss_dict.items():
                 val_key = f"val_{k}"

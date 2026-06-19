@@ -154,13 +154,18 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
 
         return {
             "forecast": pred,
+            "forecast_scaled": pred_scaled,
             "quantiles": quantiles,
+            "quantiles_scaled": quantiles_scaled,
             "reconstructed": reconstructed,
+            "recon_scaled": recon_scaled,
             "trend": trend,
             "seasonal": seasonal,
             "residual": residual,
             "trend_scaled_patches": trend_scaled_patches,
             "latent_features": latent_features,
+            "median": median,
+            "iqr": iqr,
         }
 
     @torch.no_grad()

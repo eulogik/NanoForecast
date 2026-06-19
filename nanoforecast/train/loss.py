@@ -55,26 +55,33 @@ class MultiTaskLoss(nn.Module):
         Args:
             outputs: Dictionary of predictions from NanoForecast model
             target_y: Ground truth future target of shape [B, C, prediction_length]
-            context_x: Original scaling-normalized input context of shape [B, C, context_length]
+            context_x: Raw input context of shape [B, C, context_length] (unscaled)
         Returns:
             total_loss: Aggregated scalar tensor loss
             loss_dict: Dictionary containing break-down values of float losses
         """
-        forecast = outputs["forecast"]
-        quantiles = outputs["quantiles"]
-        reconstructed = outputs["reconstructed"]
+        # All losses computed in normalized (scaled) space so datasets with
+        # different magnitudes contribute equally.
+        median = outputs["median"]
+        iqr = outputs["iqr"]
+        target_scaled = (target_y - median) / iqr.clamp(min=1e-5)
+        context_scaled = (context_x - median) / iqr.clamp(min=1e-5)
+
+        forecast_scaled = outputs["forecast_scaled"]
+        quantiles_scaled = outputs["quantiles_scaled"]
+        recon_scaled = outputs["recon_scaled"]
         trend_scaled_patches = outputs.get("trend_scaled_patches")
 
-        # 1. Point forecast loss (MSE + MAE) for robustness to outliers
-        loss_mse = F.mse_loss(forecast, target_y)
-        loss_mae = F.l1_loss(forecast, target_y)
+        # 1. Point forecast loss in scaled space
+        loss_mse = F.mse_loss(forecast_scaled, target_scaled)
+        loss_mae = F.l1_loss(forecast_scaled, target_scaled)
         loss_point = 0.5 * loss_mse + 0.5 * loss_mae
 
-        # 2. Quantile pinball loss
-        loss_quantile = self.pinball_loss(quantiles, target_y)
+        # 2. Quantile pinball loss in scaled space
+        loss_quantile = self.pinball_loss(quantiles_scaled, target_scaled)
 
-        # 3. Anomaly reconstruction loss (unscaled, in original units)
-        loss_anomaly = F.mse_loss(reconstructed, context_x)
+        # 3. Anomaly reconstruction loss in scaled space
+        loss_anomaly = F.mse_loss(recon_scaled, context_scaled)
 
         # 4. Trend smoothness on the *patch-grid scaled* trend (unit scale, scale-invariant)
         if trend_scaled_patches is not None and trend_scaled_patches.shape[-1] > 2:
