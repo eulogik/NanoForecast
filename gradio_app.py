@@ -196,7 +196,8 @@ def predict_from_csv(
         f"**Context:** {len(series)} timesteps (using last {result['context_length']})  \n"
         f"**Horizon:** {horizon} steps  \n"
         f"**Frequency:** {freq_choice}  \n"
-        f"**Checkpoint:** ~700K params, 2.7 MB  \n"
+        f"**Checkpoint:** ~1.6M params, 6.4 MB  \n"
+        f"**Built by:** [Eulogik](https://eulogik.com)  \n"
     )
 
     return fig, summary, table_df
@@ -217,11 +218,11 @@ with gr.Blocks(css=css, title="NanoForecast") as demo:
         # 🔮 NanoForecast — Deployable Time Series Forecasting
 
         Upload your CSV or use an example. The **smallest deployable time series model on the Hub**
-        (~700K params, runs on a Raspberry Pi, exports to 1.4 MB ONNX).
+        (~1.6M params, runs on a Raspberry Pi, exports to 1.4 MB ONNX).
 
         [GitHub](https://github.com/eulogik/NanoForecast) ·
-        [Model on HF](https://huggingface.co/eulogik/nanoforecast-200k) ·
-        [Paper / Docs](https://github.com/eulogik/NanoForecast#readme)
+        [Model on HF](https://huggingface.co/eulogik/nanoforecast-500k) ·
+        [Built by Eulogik](https://eulogik.com)
         """
     )
 
@@ -274,9 +275,10 @@ with gr.Blocks(css=css, title="NanoForecast") as demo:
         Or deploy instantly with our [FastAPI server](https://github.com/eulogik/NanoForecast#deploy).
 
         ### ⚡ Why NanoForecast?
-        - **Tiny**: 200K–700K params, 1.4 MB INT8 quantized
+        - **Tiny**: 200K–1.6M params, 1.4 MB INT8 quantized
         - **Fast**: <50ms inference on CPU, 12ms on edge hardware
         - **Deployable**: ONNX → browser / Lambda / Raspberry Pi / iOS
+        - **Streaming**: Stateful DeltaNet — feed one value at a time
         - **Complete**: Point forecast + intervals + decomposition in one pass
         """
     )

@@ -6,6 +6,7 @@
 [![HF Model](https://img.shields.io/badge/🤗%20Model-nanoforecast--500k-blue)](https://huggingface.co/eulogik/nanoforecast-500k)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](./LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
+[![Eulogik](https://img.shields.io/badge/by-Eulogik-purple)](https://eulogik.com)
 
 NanoForecast is a **tiny, fast, deployable** time series forecasting model. Unlike foundation models that require GPUs and terabytes of data, NanoForecast:
 
@@ -28,6 +29,8 @@ python3 train_from_csv.py --csv my_data.csv --target sales --horizon 48
 ```
 
 That's it. You get a saved model checkpoint + forecast CSV. No GPU, no cloud.
+
+> Built by [Eulogik](https://eulogik.com) — deployable AI for the real world.
 
 ### Or use the pretrained model
 
@@ -115,7 +118,7 @@ docker run -p 8000:8000 nanoforecast
 ```bash
 pip install "nanoforecast[onnx]"
 python3 -m nanoforecast.export.onnx_export \
-    --checkpoint checkpoints/nanoforecast-200k \
+    --checkpoint <checkpoint-dir> \
     --output nanoforecast.onnx
 ```
 
@@ -190,6 +193,7 @@ Raw Context  ->  Robust Scaling & Patching  ->  Resolution Prefix Token
 |---|---:|---:|---:|---:|---:|
 | `nano-200k` | 32 | 4 | 8 | ~676K | ~2.7 MB |
 | `nano-500k` | 64 | 8 | 8 | ~1.6M | ~6.4 MB |
+| `nano-1m` (v0.3) | 96 | 8 | 8 | ~3.6M | ~14 MB |
 
 ### Design notes
 
@@ -215,7 +219,7 @@ python3 pretrain.py \
 
 ```bash
 python3 benchmark.py \
-  --checkpoint checkpoints/nanoforecast-200k \
+  --checkpoint <checkpoint-dir> \
   --datasets ETTh1,ETTh2,ETTm1,exchange_rate \
   --max-windows 64 \
   --output results/benchmark.json
@@ -226,8 +230,8 @@ python3 benchmark.py \
 ```bash
 huggingface-cli login
 python3 push_to_hub.py \
-  --checkpoint checkpoints/nanoforecast-200k \
-  --repo-id your-username/nanoforecast-200k \
+  --checkpoint <checkpoint-dir> \
+  --repo-id your-username/nanoforecast-500k \
   --benchmark-json results/benchmark.json
 ```
 
@@ -257,8 +261,8 @@ v0.3 target: more data + longer training to push below MASE 2.0 on all datasets.
 
 | Issue | Status |
 |---|---|
-| **Accuracy** | Poor vs SOTA (MASE 4-11 on ETT). Good enough for prototypes, not production forecasting at scale. |
-| **Training** | Single dataset or basic mixing — no multi-dataset pretraining (pending v0.2 on Mac Mini). |
+| **Accuracy** | Modest vs SOTA (MASE ~3.45 overall). Good enough for prototypes, not production forecasting at scale. |
+| **Training** | Single dataset or multi-dataset mixing (v0.2 supports 6 real + synthetic). |
 | **Context** | Fixed 256 — longer history is truncated. |
 | **Channels** | Univariate by default; multivariate support is per-dimension independent. |
 | **Edge cases** | NaN values, missing timestamps, irregularly-sampled data not handled automatically. |
@@ -270,8 +274,8 @@ This is a **developer tool**, not a research paper. It prioritizes deployability
 | Version | Focus | Timeline |
 |---|---|---|
 | v0.1 | Deployable MVP — train, predict, export, deploy | ✅ Done |
-| v0.2 | Streaming inference + train-from-CSV CLI + multi-dataset training (Mac Mini) | ✅ Code done, training pending |
-| v0.3 | ONNX.js browser demo, iOS Swift package | TBD |
+| v0.2 | Streaming inference + train-from-CSV CLI + multi-dataset training (Mac Mini) | ✅ Done |
+| v0.3 | Colab T4 training (larger model, more data) + ONNX.js browser demo | TBD |
 | v0.4 | OpenRouter API — $0.001/forecast | TBD |
 
 ## Why "NanoForecast"?
@@ -287,3 +291,7 @@ You should be able to train a forecasting model on your laptop, deploy it to a R
 ## License
 
 Apache 2.0. See [LICENSE](./LICENSE).
+
+---
+
+Built by [Eulogik](https://eulogik.com) — deployable AI for the real world.
