@@ -60,7 +60,12 @@ deps = [
     "matplotlib",
 ]
 for dep in deps:
-    subprocess.run([sys.executable, "-m", "pip", "install", dep, "-q"], check=True)
+    r = subprocess.run([sys.executable, "-m", "pip", "install", dep], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"Failed to install {dep}:")
+        print(r.stderr[-2000:] if r.stderr else "(no stderr)")
+        print(r.stdout[-2000:] if r.stdout else "(no stdout)")
+        raise SystemExit(1)
 import nanoforecast
 print(f"nanoforecast installed | safetensors ok")
 
