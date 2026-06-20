@@ -43,24 +43,26 @@ M_PUSH = cell("## 8. Push to Hugging Face Hub (Optional)", "markdown")
 # ── Code cells ──
 C_SETUP = cell("""\
 # ── GPU check ──
-import torch, sys, os, json, time, math, random, shutil, warnings
+import torch, sys, os, json, time, math, random, shutil, warnings, subprocess
 warnings.filterwarnings("ignore")
 print(f"PyTorch {torch.__version__} | Python {sys.version}")
 cuda_ok = torch.cuda.is_available()
 if not cuda_ok:
     raise SystemExit("ERROR: No GPU detected. Go to Runtime → Change runtime type → T4 GPU.")
-print(f"GPU: {torch.cuda.get_device_name(0)} | VRAM: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f} GB")
+props = torch.cuda.get_device_properties(0)
+vram_gb = getattr(props, "total_memory", getattr(props, "total_mem", 0)) / 1e9
+print(f"GPU: {torch.cuda.get_device_name(0)} | VRAM: {vram_gb:.1f} GB")
 
-# ── Install nanoforecast from GitHub ──
-try:
-    import nanoforecast
-    print(f"nanoforecast already installed v{getattr(nanoforecast, '__version__', '?')}")
-except ImportError:
-    print("Installing nanoforecast from GitHub ...")
-    import subprocess
-    subprocess.run([sys.executable, "-m", "pip", "install", "git+https://github.com/eulogik/NanoForecast.git", "-q"], check=True)
-    import nanoforecast
-    print("  done")
+# ── Install nanoforecast + deps from GitHub ──
+deps = [
+    "git+https://github.com/eulogik/NanoForecast.git",
+    "safetensors",
+    "matplotlib",
+]
+for dep in deps:
+    subprocess.run([sys.executable, "-m", "pip", "install", dep, "-q"], check=True)
+import nanoforecast
+print(f"nanoforecast installed | safetensors ok")
 
 # ── Mount Google Drive ──
 from google.colab import drive
@@ -131,14 +133,16 @@ print(f"Final artifact: {FINAL_DIR}")
 
 C_RESUME = cell("""\
 # ── Resume detection ──
+def _final_exists():
+    return os.path.isfile(f"{FINAL_DIR}/config.json") and (
+        os.path.isfile(f"{FINAL_DIR}/model.safetensors") or os.path.isfile(f"{FINAL_DIR}/model.pt")
+    )
+
 def detect_resume():
-    # If final model exists → skip training entirely
-    final_ok = os.path.isfile(f"{FINAL_DIR}/config.json") and os.path.isfile(f"{FINAL_DIR}/model.safetensors")
-    if final_ok:
+    if _final_exists():
         print("✓ Final model found → training already complete. Skipping to benchmark.")
         return {"action": "skip", "epoch": 0, "best_val": float("inf")}
 
-    # If training state exists → resume
     if os.path.isfile(STATE_PATH):
         state = torch.load(STATE_PATH, map_location="cpu", weights_only=False)
         ep = state.get("epoch", 0)
@@ -205,6 +209,7 @@ scheduler = OneCycleLR(
 # ── Resume weights + scheduler state ──
 START_EPOCH = 0
 best_val_loss = float("inf")
+best_epoch = 0
 history = []
 
 if RESUME["action"] == "resume":
@@ -213,6 +218,7 @@ if RESUME["action"] == "resume":
     optimizer.load_state_dict(s["optimizer_state_dict"])
     START_EPOCH = s["epoch"]
     best_val_loss = s["best_val_loss"]
+    best_epoch = s.get("best_epoch", 0)
     history = s.get("history", [])
     # Fast-forward scheduler
     n_done = START_EPOCH * steps_per_epoch
@@ -302,12 +308,14 @@ else:
         is_best = val_total < best_val_loss
         if is_best:
             best_val_loss = val_total
+            best_epoch = epoch
 
         # ── Save checkpoint (every checkpoint_interval epochs OR at best) ──
         if epoch % TRAIN["checkpoint_interval"] == 0 or is_best or epoch == TRAIN["epochs"]:
             ckpt = {
                 "epoch": epoch,
                 "best_val_loss": best_val_loss,
+                "best_epoch": best_epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "config": CONFIG,
@@ -327,7 +335,6 @@ else:
     # ── Save final artifact ──
     model.eval()
     model.save_pretrained(FINAL_DIR)
-    # Also save training metadata
     meta = {
         "model_name": "NanoForecast",
         "profile": f"d{CONFIG.d_model}-L{CONFIG.num_layers}",
@@ -339,14 +346,14 @@ else:
             "epochs": TRAIN["epochs"],
             "lr": TRAIN["lr"],
             "batch_size": TRAIN["batch_size"],
-            "best_epoch": max(m["epoch"] for m in history if abs(m.get("val_loss_total", 0) - best_val_loss) < 1e-6) if history else -1,
+            "best_epoch": best_epoch,
             "best_val_loss": best_val_loss,
             "wall_time_s": sum(m.get("time_s", 0) for m in history),
         },
     }
     with open(f"{FINAL_DIR}/model_card.json", "w") as fh:
         json.dump(meta, fh, indent=2, default=str)
-    print(f"\\n✅ Training complete! Best val_loss={best_val_loss:.4f}")
+    print(f"\\n✅ Training complete! Best epoch={best_epoch} (val_loss={best_val_loss:.4f})")
     print(f"   Final artifact saved to {FINAL_DIR}")
 """)
 
@@ -363,45 +370,57 @@ if os.path.isdir(TMP_DIR):
     print("Cleaned tmp/")
 
 # ── Verify final artifact ──
-for fn in ["config.json", "model.safetensors", "model_card.json"]:
+artifacts = ["config.json", "model_card.json"]
+if os.path.isfile(f"{FINAL_DIR}/model.safetensors"):
+    artifacts.append("model.safetensors")
+elif os.path.isfile(f"{FINAL_DIR}/model.pt"):
+    artifacts.append("model.pt")
+for fn in artifacts:
     path = f"{FINAL_DIR}/{fn}"
     size = os.path.getsize(path) / 1e3
     print(f"  {fn}: {size:.0f} KB")
 """)
 
 C_BENCH = cell("""\
-# ── Benchmark on all 6 datasets ──
-# Note: this runs the same benchmark as benchmark.py
-# It takes ~5-10 minutes depending on dataset sizes.
-# If you want to skip, set BENCHMARK = False below.
+# ── Benchmark on all 6 datasets via benchmark.py CLI ──
+# Takes ~5-10 minutes. Set SKIP_BENCH to True to skip.
 
-BENCHMARK = True  # ← set to False to skip
+SKIP_BENCH = False  # ← set to True to skip
 
-if BENCHMARK and os.path.isfile(f"{FINAL_DIR}/config.json"):
-    from nanoforecast.evaluation.benchmark import NanoForecastBenchmark
+if not SKIP_BENCH and os.path.isfile(f"{FINAL_DIR}/config.json"):
+    print("Running benchmark (6 datasets, max 128 windows each) ...")
+    out_path = f"{DRIVE_ROOT}/benchmark-v03.json"
+    datasets = ",".join(TRAIN["datasets"])
+    # Clone the repo to get benchmark.py (the entry point isn't installed as a module)
+    repo_tmp = "/tmp/nanoforecast-repo"
+    if not os.path.isdir(repo_tmp):
+        subprocess.run(["git", "clone", "--depth=1", "https://github.com/eulogik/NanoForecast.git", repo_tmp], check=True, capture_output=True)
+    cmd = [
+        sys.executable, f"{repo_tmp}/benchmark.py",
+        "--checkpoint", FINAL_DIR,
+        "--datasets", datasets,
+        "--max-windows", "128",
+        "--output", out_path,
+        "--device", "cuda",
+    ]
+    subprocess.run(cmd, check=True)
 
-    print("Running benchmark (6 datasets, rolling windows) ...")
-    bm = NanoForecastBenchmark(
-        checkpoint_path=FINAL_DIR,
-        context_length=CONFIG.context_length,
-        prediction_length=CONFIG.prediction_length,
-    )
-    results = bm.run_all(max_windows=128, verbose=True)
-    bm.save_results(f"{DRIVE_ROOT}/benchmark-v03.json")
-
-    # Print summary
-    print(f"\\n{'='*60}")
-    print(f"{'Dataset':<20} {'MASE':<10} {'sMAPE':<10} {'MAE':<10} {'CRPS':<10}")
-    print(f"{'-'*60}")
-    for name, m in results.get("datasets", {}).items():
-        if "error" in m:
-            print(f"{name:<20} ERROR: {m['error']}")
-        else:
-            print(f"{name:<20} {m['mase']:<10.3f} {m['smape']:<10.2f} {m['mae']:<10.3f} {m['crps']:<10.3f}")
-    if "overall" in results:
-        o = results["overall"]
+    # Print summary from results
+    if os.path.isfile(out_path):
+        with open(out_path) as f:
+            results = json.load(f)
+        print(f"\\n{'='*60}")
+        print(f"{'Dataset':<20} {'MASE':<10} {'sMAPE':<10} {'MAE':<10} {'CRPS':<10}")
         print(f"{'-'*60}")
-        print(f"{'OVERALL':<20} {o['mase']:<10.3f} {o['smape']:<10.2f} {o['mae']:<10.3f} {o['crps']:<10.3f}")
+        for name, m in results.get("datasets", {}).items():
+            if "error" in m:
+                print(f"{name:<20} ERROR: {m['error']}")
+            else:
+                print(f"{name:<20} {m['mase']:<10.3f} {m['smape']:<10.2f} {m['mae']:<10.3f} {m['crps']:<10.3f}")
+        if "overall" in results:
+            o = results["overall"]
+            print(f"{'-'*60}")
+            print(f"{'OVERALL':<20} {o['mase']:<10.3f} {o['smape']:<10.2f} {o['mae']:<10.3f} {o['crps']:<10.3f}")
 else:
     print("Benchmark skipped.")
 """)
@@ -439,10 +458,14 @@ if os.path.isfile(v02_path):
         print(f"{'-'*56}")
         for dset in v02.get("datasets", {}):
             v02m = v02["datasets"][dset].get("mase", float("nan"))
-            v03m = v03["datasets"].get(dset, {}).get("mase", float("nan"))
-            delta = v03m - v02m if (not math.isnan(v02m) and not math.isnan(v03m)) else float("nan")
-            sign = "↓" if delta < 0 else "↑" if delta > 0 else "="
-            print(f"{dset:<20} {v02m:<12.3f} {v03m:<12.3f} {sign} {abs(delta):.3f}" if not math.isnan(delta) else f"{dset:<20} {v02m:<12.3f} {v03m:<12.3f} {'N/A':<12}")
+            v03e = v03["datasets"].get(dset, {})
+            v03m = v03e.get("mase", float("nan")) if "error" not in v03e else float("nan")
+            if math.isnan(v02m) or math.isnan(v03m):
+                print(f"{dset:<20} {v02m:<12.3f} {v03m:<12.3f} {'N/A':<12}")
+            else:
+                delta = v03m - v02m
+                sign = "↓" if delta < 0 else "↑" if delta > 0 else "="
+                print(f"{dset:<20} {v02m:<12.3f} {v03m:<12.3f} {sign} {abs(delta):.3f}")
         print(f"{'-'*56}")
 """)
 
