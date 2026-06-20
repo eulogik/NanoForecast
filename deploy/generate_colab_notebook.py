@@ -54,15 +54,35 @@ vram_gb = getattr(props, "total_memory", getattr(props, "total_mem", 0)) / 1e9
 print(f"GPU: {torch.cuda.get_device_name(0)} | VRAM: {vram_gb:.1f} GB")
 
 # ── Install nanoforecast + deps from GitHub ──
-deps = [
-    "git+https://github.com/eulogik/NanoForecast.git",
-    "safetensors",
-    "matplotlib",
-]
-for dep in deps:
-    r = subprocess.run([sys.executable, "-m", "pip", "install", dep], capture_output=True, text=True)
+# Install nanoforecast + deps
+# Use git with GIT_TERMINAL_PROMPT=0 to avoid auth hang in Colab
+env = os.environ.copy()
+env["GIT_TERMINAL_PROMPT"] = "0"
+r = subprocess.run(
+    [sys.executable, "-m", "pip", "install",
+     "git+https://github.com/eulogik/NanoForecast.git",
+     "safetensors", "matplotlib"],
+    capture_output=True, text=True, env=env,
+)
+if r.returncode != 0:
+    print("pip install failed. Trying alternate method (archive download) ...")
+    # Fallback: download the repo as a tarball and install from local copy
+    subprocess.run(
+        ["curl", "-sL", "https://github.com/eulogik/NanoForecast/archive/main.tar.gz",
+         "-o", "/tmp/nanoforecast.tar.gz"],
+        check=True, capture_output=True,
+    )
+    subprocess.run(
+        ["tar", "xzf", "/tmp/nanoforecast.tar.gz", "-C", "/tmp"],
+        check=True, capture_output=True,
+    )
+    r = subprocess.run(
+        [sys.executable, "-m", "pip", "install",
+         "/tmp/NanoForecast-main", "safetensors", "matplotlib"],
+        capture_output=True, text=True,
+    )
     if r.returncode != 0:
-        print(f"Failed to install {dep}:")
+        print("All install methods failed:")
         print(r.stderr[-2000:] if r.stderr else "(no stderr)")
         print(r.stdout[-2000:] if r.stdout else "(no stdout)")
         raise SystemExit(1)
