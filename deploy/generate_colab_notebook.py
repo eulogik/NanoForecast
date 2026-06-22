@@ -123,18 +123,18 @@ CONFIG = NanoForecastConfig(
 
 # ── Training hyperparams ──
 TRAIN = dict(
-    epochs=300,
-    batch_size=32,
+    epochs=200,
+    batch_size=128,
     lr=3e-5,
     weight_decay=0.01,
     clip_grad=1.0,
     val_fraction=0.2,
     stride=16,
     max_channels=4,
-    synthetic_records=100_000,
+    synthetic_records=10_000,
     datasets=["ETTh1", "ETTh2", "ETTm1", "exchange_rate", "electricity", "traffic"],
     seed=42,
-    checkpoint_interval=5,     # save training_state.pt every N epochs
+    checkpoint_interval=5,
 )
 
 # ── Loss weights ──
