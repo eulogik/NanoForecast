@@ -65,10 +65,12 @@ def _is_gzip(path: str) -> bool:
 
 
 def _download(dataset: str, url: str) -> str:
-    # Always cache with .gz suffix for gzipped mirrors; otherwise as plain
     path = _cache_path(dataset, suffix=".gz" if url.endswith(".gz") else "")
     if os.path.exists(path):
-        return path
+        if os.path.getsize(path) > 0:
+            return path
+        print(f"[datasets] removing empty cache for {dataset} ...")
+        os.remove(path)
     print(f"[datasets] downloading {dataset} from {url} ...")
     resp = requests.get(url, stream=True, timeout=300)
     resp.raise_for_status()
@@ -76,18 +78,34 @@ def _download(dataset: str, url: str) -> str:
         for chunk in resp.iter_content(chunk_size=1 << 20):
             if chunk:
                 fh.write(chunk)
+    if os.path.getsize(path) == 0:
+        raise RuntimeError(f"Downloaded file for {dataset} is empty: {url}")
     return path
 
 
+def _clear_cache(dataset: str) -> None:
+    for suffix in ["", ".gz"]:
+        p = _cache_path(dataset, suffix=suffix)
+        if os.path.exists(p):
+            os.remove(p)
+
 def _load_dataframe(dataset: str) -> pd.DataFrame:
     url = DATASET_URLS[dataset]
-    path = _download(dataset, url)
-    if _is_gzip(path):
-        with gzip.open(path, "rb") as fh:
-            data = fh.read()
-        arr = np.loadtxt(io.BytesIO(data), delimiter=",", dtype=np.float32)
-        return pd.DataFrame(arr)
-    return pd.read_csv(path)
+    for attempt in range(2):
+        path = _download(dataset, url)
+        try:
+            if _is_gzip(path):
+                with gzip.open(path, "rb") as fh:
+                    data = fh.read()
+                arr = np.loadtxt(io.BytesIO(data), delimiter=",", dtype=np.float32)
+                return pd.DataFrame(arr)
+            return pd.read_csv(path)
+        except (pd.errors.EmptyDataError, OSError, ValueError) as e:
+            if attempt == 0:
+                print(f"[datasets] corrupt cache for {dataset}, re-downloading ... ({e})")
+                _clear_cache(dataset)
+                continue
+            raise
 
 
 def list_datasets() -> List[str]:
