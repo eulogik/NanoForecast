@@ -59,7 +59,7 @@ print(f"GPU: {torch.cuda.get_device_name(0)} | VRAM: {vram_gb:.1f} GB")
 env = os.environ.copy()
 env["GIT_TERMINAL_PROMPT"] = "0"
 r = subprocess.run(
-    [sys.executable, "-m", "pip", "install",
+    [sys.executable, "-m", "pip", "install", "--upgrade",
      "git+https://github.com/eulogik/NanoForecast.git",
      "safetensors", "matplotlib"],
     capture_output=True, text=True, env=env,
@@ -77,7 +77,7 @@ if r.returncode != 0:
         check=True, capture_output=True,
     )
     r = subprocess.run(
-        [sys.executable, "-m", "pip", "install",
+        [sys.executable, "-m", "pip", "install", "--upgrade",
          "/tmp/NanoForecast-main", "safetensors", "matplotlib"],
         capture_output=True, text=True,
     )
@@ -86,8 +86,22 @@ if r.returncode != 0:
         print(r.stderr[-2000:] if r.stderr else "(no stderr)")
         print(r.stdout[-2000:] if r.stdout else "(no stdout)")
         raise SystemExit(1)
+# Clear module cache to force reload of nanoforecast
+for mod in list(sys.modules):
+    if "nanoforecast" in mod:
+        del sys.modules[mod]
 import nanoforecast
-print(f"nanoforecast installed | safetensors ok")
+print(f"nanoforecast upgraded | safetensors ok")
+
+# ── Clear any corrupted dataset cache ──
+cache_dir = os.path.expanduser("~/.cache/nanoforecast/datasets")
+if os.path.isdir(cache_dir):
+    # Remove any 0-byte files — they're from interrupted downloads
+    for fname in os.listdir(cache_dir):
+        fpath = os.path.join(cache_dir, fname)
+        if os.path.isfile(fpath) and os.path.getsize(fpath) == 0:
+            os.remove(fpath)
+            print(f"  removed empty cache: {fname}")
 
 # ── Mount Google Drive ──
 from google.colab import drive
