@@ -234,7 +234,8 @@ with gr.Blocks(css=css, title="NanoForecast") as demo:
             )
             target_col = gr.Textbox(
                 label="Target column name",
-                value="OT",
+                value="",
+                placeholder="e.g. OT, sales, temperature",
                 info="The column containing the time series to forecast.",
             )
             context_len = gr.Slider(

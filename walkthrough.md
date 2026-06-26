@@ -65,6 +65,7 @@ arXiv preprint: "NanoForecast: A Deployable Time Series Transformer Under 2M Par
 - Architecture description (LongConv + DeltaNet + gated router + multi-task heads)
 - v0.2 benchmarks + ablations
 - ONNX/deploy pipeline as contribution
+- Outline created at deploy/paper_outline.md
 
 ## What Makes This Wantable
 
