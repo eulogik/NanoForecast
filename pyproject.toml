@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nanoforecast"
 version = "0.2.0"
-description = "Ultra-lightweight time series foundation model architecture (200K-1.6M params) with streaming inference and Hugging Face Hub integration."
+description = "Ultra-lightweight time series foundation model (200K-6.5M params) with streaming inference, ONNX edge deployment, and Hugging Face Hub integration."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 authors = [
@@ -15,13 +15,31 @@ authors = [
 requires-python = ">=3.9"
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Intended Audience :: Science/Research",
+    "Intended Audience :: Science//Research",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Networking",
+]
+keywords = [
+    "time-series",
+    "forecasting",
+    "transformer",
+    "foundation-model",
+    "streaming-inference",
+    "onnx",
+    "edge-ai",
+    "deployable",
+    "raspberry-pi",
+    "pytorch",
+    "huggingface",
 ]
 dependencies = [
     "torch>=2.0,<3.0",
@@ -41,6 +59,13 @@ dev = ["pytest>=7.0", "ruff>=0.1.0"]
 Homepage = "https://github.com/eulogik/NanoForecast"
 Repository = "https://github.com/eulogik/NanoForecast"
 Issues = "https://github.com/eulogik/NanoForecast/issues"
+Documentation = "https://github.com/eulogik/NanoForecast#readme"
+Changelog = "https://github.com/eulogik/NanoForecast/releases"
+"Model Hub (200k)" = "https://huggingface.co/eulogik/nanoforecast-200k"
+"Model Hub (500k)" = "https://huggingface.co/eulogik/nanoforecast-500k"
+"Model Hub (v0.3)" = "https://huggingface.co/eulogik/nanoforecast-v03"
+"Live Demo" = "https://huggingface.co/spaces/eulogik/nanoforecast"
+Paper = "https://github.com/eulogik/NanoForecast/blob/main/deploy/paper.tex"
 
 [project.scripts]
 nanoforecast-pretrain = "pretrain:main"

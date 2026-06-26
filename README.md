@@ -2,13 +2,18 @@
 
 **World's most deployable time series transformer**
 
-[![HF Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/eulogik/nanoforecast)
-[![HF Model](https://img.shields.io/badge/🤗%20Model-nanoforecast--500k-blue)](https://huggingface.co/eulogik/nanoforecast-500k)
+[![PyPI](https://img.shields.io/pypi/v/nanoforecast)](https://pypi.org/project/nanoforecast/)
+[![Downloads](https://img.shields.io/pypi/dm/nanoforecast)](https://pypi.org/project/nanoforecast/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](./LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
+[![HF Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/eulogik/nanoforecast)
+[![HF 200k](https://img.shields.io/badge/🤗%20Model-200k-blue)](https://huggingface.co/eulogik/nanoforecast-200k)
+[![HF 500k](https://img.shields.io/badge/🤗%20Model-500k-blue)](https://huggingface.co/eulogik/nanoforecast-500k)
+[![HF v0.3](https://img.shields.io/badge/🤗%20Model-v0.3-blue)](https://huggingface.co/eulogik/nanoforecast-v03)
+[![Paper](https://img.shields.io/badge/📄%20Paper-LaTeX-lightgrey)](./deploy/paper.tex)
 [![Eulogik](https://img.shields.io/badge/by-Eulogik-purple)](https://eulogik.com)
 
-NanoForecast is a **tiny, fast, deployable** time series forecasting model. Unlike foundation models that require GPUs and terabytes of data, NanoForecast:
+NanoForecast is the **world's most deployable time series foundation model** — a tiny transformer for zero-shot forecasting, streaming inference, and edge deployment. At just 200K–6.5M parameters, it runs on CPU, Raspberry Pi, and in the browser via ONNX. Unlike large foundation models that require GPUs and terabytes of data, NanoForecast:
 
 - **Trains on your data in 2 minutes** — `python3 train_from_csv.py --csv sales.csv --target revenue`
 - **Streams forecasts online** — the only TS model where you can feed one value at a time
@@ -19,6 +24,22 @@ NanoForecast is a **tiny, fast, deployable** time series forecasting model. Unli
 It's **not** a foundation model. It's not going to beat TimesFM on benchmarks. What it does is **actually ship to production**.
 
 ---
+
+## Install
+
+```bash
+pip install nanoforecast
+```
+
+[![GitHub release](https://img.shields.io/github/v/release/eulogik/NanoForecast?include_prereleases)](https://github.com/eulogik/NanoForecast/releases)
+[![GitHub stars](https://img.shields.io/github/stars/eulogik/NanoForecast)](https://github.com/eulogik/NanoForecast/stargazers)
+
+From source:
+```bash
+git clone https://github.com/eulogik/NanoForecast.git
+cd NanoForecast
+pip install -e .
+```
 
 ## Quick Start
 
