@@ -237,9 +237,21 @@ python3 push_to_hub.py \
 
 ---
 
-## Benchmarks (v0.2 checkpoint — 1.6M params, 6 datasets, 100 epochs)
+## Benchmarks
 
-Trained on Mac Mini M4 MPS for ~4 hours. Mixed real + synthetic corpus.
+### v0.3 (d_model=96, 6.5M params, context=512, 200 epochs, Colab T4)
+
+| Dataset | MASE | sMAPE (%) | MAE | CRPS |
+|---:|---:|---:|---:|---:|
+| ETTh1 | **1.95** | 12.06 | 1.30 | 1.05 |
+| ETTh2 | **2.74** | 10.47 | 2.46 | 1.99 |
+| ETTm1 | **2.17** | 10.70 | 0.72 | 0.65 |
+| exchange_rate | **7.44** | 1.72 | 0.011 | 0.014 |
+| electricity | **1.29** | 4.76 | 158.30 | 175.24 |
+| traffic | **0.81** | 24.00 | 0.004 | 0.003 |
+| **Overall** | **2.73** | 10.62 | 27.13 | 29.83 |
+
+### v0.2 (d_model=64, 1.6M params, context=256, 100 epochs, Mac Mini M4)
 
 | Dataset | MASE | sMAPE (%) | MAE | CRPS |
 |---:|---:|---:|---:|---:|
@@ -251,9 +263,19 @@ Trained on Mac Mini M4 MPS for ~4 hours. Mixed real + synthetic corpus.
 | traffic | **1.25** | 44.80 | 0.006 | 0.006 |
 | **Overall** | **3.45** | 18.68 | 32.76 | 32.10 |
 
-The model is better than naive on electricity (MASE 1.54) and traffic (MASE 1.25)
-and significantly improved over v0.1 (ETTh1 MASE 5→3.34, exchange_rate 11→7.31).
-v0.3 target: more data + longer training to push below MASE 2.0 on all datasets.
+### v0.3 vs v0.2 comparison
+
+| Dataset | v0.2 | v0.3 | Improvement |
+|---:|---:|---:|---|
+| ETTh1 | 3.34 | **1.95** | ↓ 42% |
+| ETTh2 | 3.71 | **2.74** | ↓ 26% |
+| ETTm1 | 3.58 | **2.17** | ↓ 39% |
+| exchange_rate | 7.31 | 7.44 | ↑ 2% |
+| electricity | 1.54 | **1.29** | ↓ 16% |
+| traffic | 1.25 | **0.81** | ↓ 35% |
+| **Overall** | **3.45** | **2.73** | **↓ 21%** |
+
+v0.3 beats v0.2 on 5 of 6 datasets. Larger model (6.5M vs 1.6M) and longer context (512 vs 256) provide significant accuracy gains on ETTh1/ETTh2/ETTm1. Exchange rate (volatile FX) slightly regresses.
 
 ---
 
@@ -261,8 +283,8 @@ v0.3 target: more data + longer training to push below MASE 2.0 on all datasets.
 
 | Issue | Status |
 |---|---|
-| **Accuracy** | Modest vs SOTA (MASE ~3.45 overall). Good enough for prototypes, not production forecasting at scale. |
-| **Training** | Single dataset or multi-dataset mixing (v0.2 supports 6 real + synthetic). |
+| **Accuracy** | Modest vs SOTA (MASE ~2.73 overall for v0.3). Good enough for prototypes, not production forecasting at scale. |
+| **Training** | Multi-dataset mixing (v0.3: 6 real + 10K synthetic, 200 epochs). |
 | **Context** | Fixed 256 — longer history is truncated. |
 | **Channels** | Univariate by default; multivariate support is per-dimension independent. |
 | **Edge cases** | NaN values, missing timestamps, irregularly-sampled data not handled automatically. |
