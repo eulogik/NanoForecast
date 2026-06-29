@@ -101,10 +101,10 @@ Upload a CSV, set your horizon, get a forecast + prediction intervals + decompos
 | Feature | Details |
 |---|---|---|
 | **Architecture** | LongConv + DeltaNet RNN + gated router + MLP blocks |
-| **Parameters** | ~200K–700K (tiny) |
+| **Parameters** | 200K–6.5M (tiny) |
 | **Outputs** | Point forecast + 5 quantiles (p10/p25/p50/p75/p90) + trend/seasonal/residual decomposition |
-| **Context** | 256 timesteps |
-| **Horizon** | Any length (trained on 48) |
+| **Context** | 256–512 timesteps |
+| **Horizon** | Any length, forecasts up to 48 steps per call |
 | **Frequency** | Hourly / Daily / Weekly / Monthly |
 | **Deploy targets** | CPU, ARM, Raspberry Pi, Lambda, iOS, browser (via ONNX.js) |
 | **Streaming inference** | Stateful RNN — feed one value at a time, no re-processing |
@@ -214,7 +214,7 @@ Raw Context  ->  Robust Scaling & Patching  ->  Resolution Prefix Token
 |---|---:|---:|---:|---:|---:|
 | `nano-200k` | 32 | 4 | 8 | ~676K | ~2.7 MB |
 | `nano-500k` | 64 | 8 | 8 | ~1.6M | ~6.4 MB |
-| `nano-1m` (v0.3) | 96 | 8 | 8 | ~3.6M | ~14 MB |
+| `nano-1m` (v0.3) | 96 | 8 | 8 | ~6.5M | ~26 MB |
 
 ### Design notes
 
