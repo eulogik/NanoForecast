@@ -28,9 +28,74 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 | 8 | Training runbook + assistant prompt | ✅ Done | 15 min | Mac Mini prep |
 | 9 | **Streaming inference API** | ✅ Done | — | **Unique differentiator** |
 | 10 | **train_from_csv.py CLI** | ✅ Done | — | **Primary UX path** |
-| 11 | Mac Mini training: v0.2 checkpoint | ✅ Done | Days | Real accuracy |
-| 12 | arXiv paper (after v0.2) | 🔲 | — | Credibility |
-| 13 | OpenRouter listing | 🔲 After v0.2 | — | Revenue |
+| 11 | Mac Mini training: v0.2 checkpoint (Reverso recipe) | 🔲 (server) | Days | Real accuracy |
+| 12 | v0.3 Frequency-Aware Hybrid architecture | 🔲 | — | Novel leap |
+| 13 | arXiv paper (after v0.2) | 🔲 | — | Credibility |
+| 14 | OpenRouter listing | 🔲 After v0.2 | — | Revenue |
+
+---
+
+## Research Pivot (Jul 2026) — Architecture Was Right All Along
+
+After deep research into the 2026 TS landscape we were worried our LongConv+DeltaNet
+architecture was wrong. **It is not.** A Feb 2026 paper, **Reverso** (arXiv:2602.17634),
+proves the exact pattern is SOTA-efficient:
+
+> "Small hybrid models that interleave long convolution and linear RNN layers
+> (in particular DeltaNet layers) can match the performance of larger transformer-based
+> models while being more than a hundred times smaller."
+
+So v0.1's weakness was **training data/recipe**, not architecture. Plan corrected below.
+
+### What's actually SOTA-efficient in 2026 (and Mac-runnable?)
+
+| Model | Core idea | Mac-runnable? |
+|---|---|---|
+| **Reverso** | LongConv + DeltaNet (linear RNN) hybrid | ✅ Pure PyTorch |
+| **FRWKV** (Dec 2025) | Frequency-domain linear attention — #1 avg rank on 8 datasets | ✅ Pure PyTorch |
+| **xLSTMTime** | xLSTM (matrix-memory LSTM) | ✅ Pure PyTorch |
+| **CMDMamba** | Dual-layer Mamba + DConvFFN | ❌ CUDA kernels |
+| **TTT** | Hidden state = tiny gradient-updated model | ✅ Pure PyTorch |
+| Mamba-2/3 | SSM=linear attention (SSD) | ❌ CUDA kernels |
+
+Key takeaways:
+- Mamba needs CUDA → **not viable on Mac MPS**. Skip pure Mamba.
+- The winning 2026 pattern is **hybrid**: SSM/conv/linear-RNN backbone + a little
+  attention or frequency mixing. NanoForecast already does hybrid (gated router).
+- **No small deployable TS foundation model fuses time-domain + frequency-domain.**
+  That gap = our v0.3 differentiator.
+
+---
+
+## v0.2 — Train Now, Same Architecture, Better Recipe
+
+Keep LongConv + DeltaNet RNN + gated router. Apply the **Reverso training recipe**:
+- Richer data mix: TSMixup-style augmentation + more synthetic variety
+- Longer context window, multi-horizon quantile training
+- Longer schedule (100 epochs) on the server via tmux (48–72 threads, CPU)
+
+Config (see `deploy/training_runbook.md`):
+```bash
+python3 pretrain.py \
+  --datasets ETTh1,ETTh2,ETTm1 \
+  --synthetic-records 10000 \
+  --epochs 100 \
+  --batch-size 256 --stride 16 \
+  --d-model 64 --num-layers 8 --lr 1e-5 \
+  --device cpu --output checkpoints/nanoforecast-500k
+```
+
+## v0.3 — The Novel Leap: Frequency-Aware Hybrid
+
+Add a **Frequency-Mixing block** gated alongside LongConv/DeltaNet:
+- Spectral branch via FFT + learnable band-pass filters (seasonal/resonant structure)
+- Gated router learns per-patch whether to use time-domain (LongConv/DeltaNet)
+  or frequency-domain (spectral) representation
+- All under ~1M params, trained with the v0.2 recipe
+
+Why novel: small TS models pick *either* time-domain (Mamba/DeltaNet) *or*
+frequency-domain (TimesNet/FreTS). **Fusing both behind a learned router** in a
+sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 
 ---
 
