@@ -48,6 +48,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--val-fraction", type=float, default=0.2)
     p.add_argument("--stride", type=int, default=64)
     p.add_argument("--max-channels", type=int, default=4)
+    p.add_argument("--use-freq-mixing", action="store_true",
+                   help="v0.4: enable the frequency-domain (spectral) mixing branch")
     p.add_argument("--output", type=str, default="checkpoints/nanoforecast-200k")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", type=str, default=None,
@@ -95,6 +97,7 @@ def main() -> None:
         num_layers=args.num_layers,
         patch_size=args.patch_size,
         covariate_dim=4,
+        use_freq_mixing=args.use_freq_mixing,
     )
 
     # --- Build corpus ---
@@ -177,7 +180,7 @@ def main() -> None:
 
     card = {
         "model_name": "NanoForecast",
-        "profile": "nano-200k" if (config.d_model, config.num_layers) == (32, 4) else f"d{config.d_model}-L{config.num_layers}",
+        "profile": "nano-200k" if (config.d_model, config.num_layers) == (32, 4) else f"d{config.d_model}-L{config.num_layers}{'-freq' if config.use_freq_mixing else ''}",
         "params": n_params,
         "config": {
             "context_length": config.context_length,

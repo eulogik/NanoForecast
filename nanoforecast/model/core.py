@@ -62,7 +62,8 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
                 d_model=self.d_model,
                 expansion_factor=config.expansion_factor,
                 dropout=config.dropout,
-                use_router=config.use_gated_router
+                use_router=config.use_gated_router,
+                use_freq=config.use_freq_mixing
             ) for _ in range(config.num_layers)
         ])
 

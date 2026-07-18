@@ -22,6 +22,7 @@ class NanoForecastConfig:
     
     # Gating and features
     use_gated_router: bool = True
+    use_freq_mixing: bool = False  # v0.4: add spectral (frequency-domain) branch
     
     @classmethod
     def nano_200k(cls) -> "NanoForecastConfig":
@@ -41,4 +42,19 @@ class NanoForecastConfig:
             patch_size=8,
             dropout=0.1,
             expansion_factor=2
+        )
+
+    @classmethod
+    def nano_v04(cls) -> "NanoForecastConfig":
+        """v0.4: same 6.5M-scale backbone as v0.3 plus the frequency-mixing branch."""
+        return cls(
+            d_model=96,
+            num_layers=8,
+            patch_size=8,
+            dropout=0.1,
+            expansion_factor=2,
+            context_length=512,
+            prediction_length=96,
+            use_gated_router=True,
+            use_freq_mixing=True,
         )

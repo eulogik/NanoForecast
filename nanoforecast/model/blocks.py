@@ -44,6 +44,96 @@ class LongConvolution(nn.Module):
         return out.transpose(1, 2)
 
 
+class FrequencyMixing(nn.Module):
+    """
+    Frequency-domain mixing branch.
+
+    Maps the patch sequence to the spectral domain, applies learnable
+    per-channel band-pass filters (so the model can emphasise/attenuate
+    seasonal vs. trend vs. high-frequency content), then returns to the
+    time domain via inverse FFT. Runs in O(L log L) with only PyTorch ops,
+    so it stays CPU/MPS/ONNX friendly and stateless per window (streaming
+    inference is unaffected -- the DeltaNet still carries the recurrent state).
+
+    Operates on the patch sequence [B, L, D] where L is the (padded) number
+    of tokens. The FFT is taken along the sequence axis; each of the D
+    channels gets its own complex filter bank.
+    """
+
+    def __init__(self, seq_len: int, d_model: int, num_bands: int = 8):
+        super().__init__()
+        self.seq_len = seq_len
+        self.d_model = d_model
+        self.num_bands = num_bands
+        # Complex filter bank: one gain per (band, channel). Initialised to ~1
+        # so the branch is near-identity at start and the router can learn to
+        # up-weight it only where helpful.
+        self.band_gains = nn.Parameter(
+            torch.ones(num_bands, d_model, dtype=torch.float32)
+        )
+        self.band_bias = nn.Parameter(torch.zeros(num_bands, d_model))
+        # Smooth interpolation weights that place each band centre across the
+        # positive frequency axis [0, 0.5] (Nyquist). Built once, fixed.
+        self.register_buffer(
+            "band_centers",
+            torch.linspace(0.0, 0.5, num_bands).view(num_bands, 1),
+            persistent=False,
+        )
+        self.out_proj = nn.Linear(d_model, d_model)
+
+    def _band_masks(self, n_freqs: int, device: torch.device) -> torch.Tensor:
+        """Build [num_bands, n_freqs] soft rectangular masks over frequencies."""
+        freqs = torch.linspace(0.0, 0.5, n_freqs, device=device).view(1, n_freqs)
+        # bandwidth shrinks toward Nyquist; keep simple constant-ish overlap
+        width = 0.5 / self.num_bands
+        # distance of each freq to each band centre
+        dist = torch.abs(freqs - self.band_centers)  # [num_bands, n_freqs]
+        # triangular response: 1 at centre, 0 at +/- width
+        masks = torch.clamp(1.0 - dist / (width + 1e-6), min=0.0)
+        return masks  # [num_bands, n_freqs]
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Input tensor of shape [B, L, D]
+        Returns:
+            out: Frequency-mixed tensor of shape [B, L, D]
+        """
+        B, L, D = x.shape
+        x_t = x.transpose(1, 2)  # [B, D, L]
+
+        # Real FFT along the sequence axis -> [B, D, L//2 + 1] complex
+        X = torch.fft.rfft(x_t, n=L, dim=-1)
+        n_freqs = X.shape[-1]
+
+        # magnitude + phase
+        mag = X.abs()  # [B, D, n_freqs]
+        phase = torch.angle(X)  # [B, D, n_freqs]
+
+        # Band masks [num_bands, n_freqs] -> [n_freqs, num_bands] -> [1, 1, n_freqs, num_bands]
+        masks = self._band_masks(n_freqs, X.device)  # [num_bands, n_freqs]
+        masks = masks.permute(1, 0).unsqueeze(0).unsqueeze(0)  # [1, 1, n_freqs, num_bands]
+
+        # magnitude reshaped for band projection: [B, D, n_freqs, 1]
+        mag_in = mag.unsqueeze(-1)
+        # learnable per-band, per-channel gain/bias applied to masked magnitude
+        gains = self.band_gains.view(1, D, 1, self.num_bands)  # [1, D, 1, B]
+        biases = self.band_bias.view(1, D, 1, self.num_bands)
+        # weighted magnitude per band: [B, D, n_freqs, num_bands]
+        band_mag = (mag_in * masks) * gains + (masks * biases)
+        # sum over bands back to [B, D, n_freqs]
+        new_mag = band_mag.sum(dim=-1)
+
+        # Reconstruct complex spectrum (keep phase)
+        new_mag = new_mag.clamp(min=0.0)
+        X_out = torch.polar(new_mag, phase)
+
+        # Inverse FFT back to time domain -> [B, D, L]
+        y_t = torch.fft.irfft(X_out, n=L, dim=-1)
+        y = y_t.transpose(1, 2)  # [B, L, D]
+        return self.out_proj(y)
+
+
 class DeltaNetState:
     """Recurrent state for a single DeltaNet block during streaming inference."""
     def __init__(self, batch_size: int, d_model: int, device: torch.device, dtype: torch.dtype):
@@ -159,53 +249,71 @@ class GatedMLP(nn.Module):
 
 class GatedRouter(nn.Module):
     """
-    Learned Grouting/Routing block to dynamically blend the outputs
-    of Long Convolution, DeltaNet, and Gated MLP modules.
+    Learned routing block to dynamically blend the outputs of the sequence
+    mixing branches. Supports 3 branches (conv/rnn/mlp) or 4 when the
+    frequency-mixing branch is enabled.
     """
-    def __init__(self, d_model: int):
+    def __init__(self, d_model: int, use_freq: bool = False):
         super().__init__()
-        self.router = nn.Linear(d_model, 3)
-        
-    def forward(self, x: torch.Tensor, out_conv: torch.Tensor, out_rnn: torch.Tensor, out_mlp: torch.Tensor) -> torch.Tensor:
+        self.use_freq = use_freq
+        self.num_branches = 4 if use_freq else 3
+        self.router = nn.Linear(d_model, self.num_branches)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        out_conv: torch.Tensor,
+        out_rnn: torch.Tensor,
+        out_mlp: torch.Tensor,
+        out_freq: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         Args:
             x: Original layer input [B, L, D] (used to compute routing weights)
             out_conv: Output of Long Conv [B, L, D]
             out_rnn: Output of DeltaNet [B, L, D]
             out_mlp: Output of Gated MLP [B, L, D]
+            out_freq: Output of FrequencyMixing [B, L, D] (required if use_freq)
         Returns:
             routed: Blended output [B, L, D]
         """
-        # Compute dynamic routing weights based on average pooling of the input
         x_summary = x.mean(dim=1)  # [B, D]
-        logits = self.router(x_summary)  # [B, 3]
-        weights = F.softmax(logits, dim=-1)  # [B, 3]
-        
+        logits = self.router(x_summary)  # [B, num_branches]
+        weights = F.softmax(logits, dim=-1)  # [B, num_branches]
+
         w_conv = weights[:, 0].view(-1, 1, 1)
         w_rnn = weights[:, 1].view(-1, 1, 1)
         w_mlp = weights[:, 2].view(-1, 1, 1)
-        
-        return w_conv * out_conv + w_rnn * out_rnn + w_mlp * out_mlp
+        out = w_conv * out_conv + w_rnn * out_rnn + w_mlp * out_mlp
+        if self.use_freq:
+            w_freq = weights[:, 3].view(-1, 1, 1)
+            out = out + w_freq * out_freq
+        return out
 
 
 class SequenceMixingBlock(nn.Module):
     """
     Sequence mixing block integrating Conv, RNN, and MLP sub-layers with dynamic routing.
     """
-    def __init__(self, seq_len: int, d_model: int, expansion_factor: int = 2, dropout: float = 0.1, use_router: bool = True):
+    def __init__(self, seq_len: int, d_model: int, expansion_factor: int = 2, dropout: float = 0.1, use_router: bool = True, use_freq: bool = False):
         super().__init__()
         self.use_router = use_router
+        self.use_freq = use_freq
         self.norm1 = nn.RMSNorm(d_model) if hasattr(nn, 'RMSNorm') else nn.LayerNorm(d_model)
         self.norm2 = nn.RMSNorm(d_model) if hasattr(nn, 'RMSNorm') else nn.LayerNorm(d_model)
         self.norm3 = nn.RMSNorm(d_model) if hasattr(nn, 'RMSNorm') else nn.LayerNorm(d_model)
-        
+        self.norm4 = nn.RMSNorm(d_model) if hasattr(nn, 'RMSNorm') else nn.LayerNorm(d_model)
+
         self.conv = LongConvolution(seq_len, d_model)
         self.rnn = DeltaNetBlock(d_model)
         self.mlp = GatedMLP(d_model, expansion_factor, dropout)
-        
+
+        if use_freq:
+            self.freq = FrequencyMixing(seq_len, d_model, num_bands=8)
+
         if use_router:
-            self.router = GatedRouter(d_model)
-            
+            self.router = GatedRouter(d_model, use_freq=use_freq)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -214,12 +322,19 @@ class SequenceMixingBlock(nn.Module):
         out_conv = self.conv(self.norm1(x))
         out_rnn = self.rnn(self.norm2(x))
         out_mlp = self.mlp(self.norm3(x))
-        
+
+        if self.use_freq:
+            out_freq = self.freq(self.norm4(x))
+        else:
+            out_freq = None
+
         if self.use_router:
-            routed = self.router(x, out_conv, out_rnn, out_mlp)
+            routed = self.router(x, out_conv, out_rnn, out_mlp, out_freq)
+        elif self.use_freq:
+            routed = (out_conv + out_rnn + out_mlp + out_freq) / 4.0
         else:
             routed = (out_conv + out_rnn + out_mlp) / 3.0
-            
+
         return x + routed
 
     def forward_stream(
@@ -246,8 +361,15 @@ class SequenceMixingBlock(nn.Module):
         out_rnn = self.rnn.forward_with_state(self.norm2(x), delta_state)
         out_mlp = self.mlp(self.norm3(x))
 
+        if self.use_freq:
+            out_freq = self.freq(self.norm4(x))
+        else:
+            out_freq = None
+
         if self.use_router:
-            routed = self.router(x, out_conv, out_rnn, out_mlp)
+            routed = self.router(x, out_conv, out_rnn, out_mlp, out_freq)
+        elif self.use_freq:
+            routed = (out_conv + out_rnn + out_mlp + out_freq) / 4.0
         else:
             routed = (out_conv + out_rnn + out_mlp) / 3.0
 
