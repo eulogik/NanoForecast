@@ -28,10 +28,11 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 | 8 | Training runbook + assistant prompt | ✅ Done | 15 min | Mac Mini prep |
 | 9 | **Streaming inference API** | ✅ Done | — | **Unique differentiator** |
 | 10 | **train_from_csv.py CLI** | ✅ Done | — | **Primary UX path** |
-| 11 | Mac Mini training: v0.2 checkpoint (Reverso recipe) | 🔲 (server) | Days | Real accuracy |
-| 12 | v0.3 Frequency-Aware Hybrid architecture | 🔲 | — | Novel leap |
-| 13 | arXiv paper (after v0.2) | 🔲 | — | Credibility |
-| 14 | OpenRouter listing | 🔲 After v0.2 | — | Revenue |
+| 11 | v0.2 checkpoint (Mac Mini, 1.6M, MASE 3.45) | ✅ Done | — | Real accuracy |
+| 12 | v0.3 release (6.5M, MASE 2.73, paper + Colab) | ✅ Done | — | Scale + credibility |
+| 13 | **v0.4 Frequency-Aware Hybrid (time+freq router)** | 🔵 Training | ~1.5h (PowerEdge) | **Novel leap** |
+| 14 | arXiv paper (v0.4 update) | 🔲 | — | Credibility |
+| 15 | OpenRouter listing | 🔲 After v0.4 | — | Revenue |
 
 ---
 
@@ -85,17 +86,34 @@ python3 pretrain.py \
   --device cpu --output checkpoints/nanoforecast-500k
 ```
 
-## v0.3 — The Novel Leap: Frequency-Aware Hybrid
+## v0.4 — The Novel Leap: Frequency-Aware Hybrid (IMPLEMENTED)
 
-Add a **Frequency-Mixing block** gated alongside LongConv/DeltaNet:
-- Spectral branch via FFT + learnable band-pass filters (seasonal/resonant structure)
-- Gated router learns per-patch whether to use time-domain (LongConv/DeltaNet)
-  or frequency-domain (spectral) representation
-- All under ~1M params, trained with the v0.2 recipe
+v0.3 scaled the architecture but kept it pure time-domain. v0.4 adds a
+**Frequency-Mixing branch** as a 4th expert in the existing gated router:
 
-Why novel: small TS models pick *either* time-domain (Mamba/DeltaNet) *or*
-frequency-domain (TimesNet/FreTS). **Fusing both behind a learned router** in a
-sub-1M deployable foundation model is an unclaimed contribution → paper angle.
+- **FreqMix block**: real-FFT the patch sequence → learnable per-channel band-pass
+  filters (8 bands, seasonal/trend/high-freq) → inverse FFT → linear proj.
+  O(L log L), pure PyTorch, stateless per window (streaming stays intact via DeltaNet).
+- **Gated router** extended 3→4 branches; learns per-window whether to use
+  time-domain (LongConv/DeltaNet/MLP) or frequency-domain (FreqMix).
+- Same multi-task heads, instance robust scaling, patching, streaming, ONNX export.
+- Off by default (`use_freq_mixing=False`) → v0.3 path bit-identical.
+
+**Why novel (honest framing):** frequency-domain TS modeling is known
+(TimesNet, FreTS, FRWKV), but no *deployable, sub-10M, streaming, pure-PyTorch*
+foundation model fuses time + frequency behind a learned router. SAMForecast does
+attention+Mamba+wavelet but needs CUDA. v0.4's edge: tiny + CPU-trainable + edge-runnable.
+
+**Status:** training on PowerEdge (72 threads, 100 epochs, 6 datasets + 10K synthetic,
+d_model=96, 8 layers, `--use-freq-mixing`). ~1.5h. Target: beat v0.3 MASE 2.73.
+
+```bash
+python3 pretrain.py \
+  --datasets ETTh1,ETTh2,ETTm1,exchange_rate,electricity,traffic \
+  --synthetic-records 10000 --epochs 100 --batch-size 256 --stride 16 \
+  --d-model 96 --num-layers 8 --lr 1e-5 --max-channels 16 \
+  --use-freq-mixing --device cpu --output checkpoints/nanoforecast-v04
+```
 
 ---
 

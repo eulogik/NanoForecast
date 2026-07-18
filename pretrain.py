@@ -50,6 +50,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-channels", type=int, default=4)
     p.add_argument("--use-freq-mixing", action="store_true",
                    help="v0.4: enable the frequency-domain (spectral) mixing branch")
+    p.add_argument("--num-workers", type=int, default=0,
+                   help="DataLoader worker processes (CPU training benefits from >0)")
     p.add_argument("--output", type=str, default="checkpoints/nanoforecast-200k")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--device", type=str, default=None,
@@ -131,8 +133,8 @@ def main() -> None:
     print(f"  train records   : {len(train_records)}")
     print(f"  val records     : {len(val_records)}")
 
-    train_loader = create_dataloader(train_records, batch_size=args.batch_size, augment=True, shuffle=True, drop_last=False)
-    val_loader = create_dataloader(val_records, batch_size=args.batch_size, augment=False, shuffle=False, drop_last=False)
+    train_loader = create_dataloader(train_records, batch_size=args.batch_size, augment=True, shuffle=True, drop_last=False, num_workers=args.num_workers)
+    val_loader = create_dataloader(val_records, batch_size=args.batch_size, augment=False, shuffle=False, drop_last=False, num_workers=args.num_workers)
     print(f"  train batches   : {len(train_loader)}")
     print(f"  val batches     : {len(val_loader)}")
 

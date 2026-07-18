@@ -144,6 +144,7 @@ def create_dataloader(
     shuffle: bool = True,
     drop_last: bool = False,
     min_batch_size: int = 1,
+    num_workers: int = 0,
 ) -> torch.utils.data.DataLoader:
     """
     Helper function to wrap dataset in a DataLoader using ResolutionBatchSampler.
@@ -159,10 +160,14 @@ def create_dataloader(
         min_batch_size=min_batch_size,
     )
 
+    # pin_memory only helps when a GPU is present; it's a no-op (and prints a
+    # warning) on CPU. Parallel num_workers overlap data prep with compute so
+    # the training threads are not starved waiting on the loader.
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=sampler,
-        num_workers=0,
-        pin_memory=True
+        num_workers=num_workers,
+        pin_memory=False,
+        persistent_workers=num_workers > 0,
     )
     return loader

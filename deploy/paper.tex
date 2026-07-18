@@ -70,6 +70,35 @@ Each of $L=8$ layers contains three components blended by a learned gated router
 
 The router computes: $\text{output} = \alpha \cdot \text{LongConv}(x) + (1-\alpha) \cdot \text{DeltaNet}(x)$, where $\alpha$ is a learned per-token weight.
 
+\subsection{Frequency-Domain Mixing Branch (v0.4)}
+\label{sec:freqmix}
+Prior efficient forecasters choose \emph{either} a time-domain backbone
+(convolution, linear RNN, Mamba) \emph{or} an explicit frequency representation
+(TimesNet, FreTS, FRWKV). We posit that a deployable model should exploit both,
+and propose a lightweight spectral branch fused by the same gated router.
+
+Given the patch sequence $X \in \mathbb{R}^{L \times D}$, we apply a real FFT
+along the sequence axis and decompose each of the $D$ channels into magnitude
+and phase. A learned bank of $K=8$ soft band-pass filters
+$\{g_k \in \mathbb{R}^D\}_{k=1}^K$ (initialised to identity) modulates the
+magnitude spectrum per band; the filtered magnitude is recombined and inverted
+through an inverse FFT, preserving the original phase:
+\begin{equation}
+    \hat{X} = \text{iFFT}\!\left( \sum_{k=1}^{K} g_k \odot M_k(\text{FFT}(X)),\; \angle\!\text{FFT}(X) \right),
+\end{equation}
+where $M_k$ is a fixed triangular mask placing band $k$ at centre frequency
+$c_k = k / (2K)$. The result passes through a linear projection and is blended
+by the router as a fourth expert:
+\begin{equation}
+    \text{output} = w_c \text{LongConv}(x) + w_r \text{DeltaNet}(x) + w_m \text{MLP}(x) + w_f \text{FreqMix}(x),
+\end{equation}
+with $(w_c, w_r, w_m, w_f) = \text{softmax}(r(x))$. The branch is stateless per
+window (the FFT is over the fixed-length patch sequence), so streaming inference
+remains $O(1)$ via the DeltaNet state. Complexity is $O(L \log L)$ with only
+PyTorch primitives---no CUDA kernels---preserving edge deployability. The router
+learns per-window whether the signal is better explained in the time or frequency
+domain (e.g. strong seasonality $\rightarrow$ higher $w_f$).
+
 \subsection{Multi-Task Output Heads}
 A single forward pass produces:
 \begin{itemize}
