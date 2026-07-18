@@ -104,8 +104,9 @@ v0.3 scaled the architecture but kept it pure time-domain. v0.4 adds a
 foundation model fuses time + frequency behind a learned router. SAMForecast does
 attention+Mamba+wavelet but needs CUDA. v0.4's edge: tiny + CPU-trainable + edge-runnable.
 
-**Status:** training on PowerEdge (72 threads, 100 epochs, 6 datasets + 10K synthetic,
-d_model=96, 8 layers, `--use-freq-mixing`). ~1.5h. Target: beat v0.3 MASE 2.73.
+**Status:** training on PowerEdge (CPU, 100 epochs, 6 datasets + 10K synthetic,
+d_model=96, 8 layers, `--use-freq-mixing`, context=256). ~8-9h on CPU (DeltaNet's
+sequential RNN loop is CPU-bound; the Mac Mini was faster via MPS). Target: beat v0.3 MASE 2.73.
 
 ```bash
 python3 pretrain.py \
