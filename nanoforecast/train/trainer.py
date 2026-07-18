@@ -139,11 +139,13 @@ class NanoForecastTrainer:
         """
         Runs the training curriculum loop for a specified number of epochs.
         """
-        # Initialize OneCycleLR scheduler
+        # Initialize OneCycleLR scheduler. Cap the peak LR at 3x base to avoid
+        # the instability that a 10x spike causes (val loss blowups mid-cycle).
         steps_per_epoch = len(train_loader)
+        base_lr = self.optimizer.param_groups[0]["lr"]
         self.scheduler = OneCycleLR(
             self.optimizer,
-            max_lr=self.optimizer.param_groups[0]["lr"] * 10,
+            max_lr=min(base_lr * 3, 2e-4),
             epochs=epochs,
             steps_per_epoch=steps_per_epoch,
             pct_start=0.1,
