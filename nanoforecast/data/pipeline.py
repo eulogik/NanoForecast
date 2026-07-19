@@ -52,13 +52,15 @@ class TimeSeriesDataset(Dataset):
             rec["context_covariates"], dtype=torch.float32
         )
 
-        return {
+        out = {
             "x": x,
             "y": y,
             "freq_id": freq_id,
             "covariates": covariates,
-            "horizon": h,
         }
+        if self.multi_horizon:
+            out["horizon"] = h
+        return out
 
     def _reverso_augment(
         self, ctx: np.ndarray, y: np.ndarray
