@@ -143,6 +143,27 @@ class ResolutionBatchSampler(Sampler):
         return total
 
 
+def _collate_multi_horizon(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+    """Custom collate for multi-horizon: pad y to max horizon in batch."""
+    max_h = max(item["y"].shape[-1] for item in batch)
+    out = {
+        "x": torch.stack([item["x"] for item in batch]),
+        "freq_id": torch.stack([item["freq_id"] for item in batch]),
+        "covariates": torch.stack([item["covariates"] for item in batch]),
+        "horizon": torch.tensor([item["horizon"] for item in batch]),
+    }
+    # Pad y tensors to max_h
+    y_list = []
+    for item in batch:
+        y = item["y"]
+        pad_len = max_h - y.shape[-1]
+        if pad_len > 0:
+            y = torch.nn.functional.pad(y, (0, pad_len))
+        y_list.append(y)
+    out["y"] = torch.stack(y_list)
+    return out
+
+
 def create_dataloader(
     records: List[Dict],
     batch_size: int,
@@ -171,11 +192,14 @@ def create_dataloader(
         min_batch_size=min_batch_size,
     )
 
+    collate_fn = _collate_multi_horizon if multi_horizon else None
+
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=sampler,
         num_workers=num_workers,
         pin_memory=False,
         persistent_workers=num_workers > 0,
+        collate_fn=collate_fn,
     )
     return loader

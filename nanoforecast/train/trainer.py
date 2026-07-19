@@ -67,8 +67,8 @@ class NanoForecastTrainer:
                 batch["covariates"].to(self.device)
                 if "covariates" in batch else None
             )
+            horizons = batch.get("horizon")
 
-            target_h = y.shape[-1]
             self.optimizer.zero_grad(set_to_none=True)
 
             if use_amp:
@@ -76,12 +76,14 @@ class NanoForecastTrainer:
                     device_type=device_type, dtype=autocast_dtype
                 ):
                     outputs = self.model(x, freq_ids, covariates)
-                    outputs = self._truncate_to_horizon(outputs, target_h)
-                    loss, loss_dict = self.loss_fn(outputs, y, x)
+                    loss, loss_dict = self._compute_loss(
+                        outputs, y, x, horizons
+                    )
             else:
                 outputs = self.model(x, freq_ids, covariates)
-                outputs = self._truncate_to_horizon(outputs, target_h)
-                loss, loss_dict = self.loss_fn(outputs, y, x)
+                loss, loss_dict = self._compute_loss(
+                    outputs, y, x, horizons
+                )
 
             loss.backward()
 
@@ -119,20 +121,21 @@ class NanoForecastTrainer:
                 batch["covariates"].to(self.device)
                 if "covariates" in batch else None
             )
-
-            target_h = y.shape[-1]
+            horizons = batch.get("horizon")
 
             if use_amp:
                 with torch.amp.autocast(
                     device_type=device_type, dtype=autocast_dtype
                 ):
                     outputs = self.model(x, freq_ids, covariates)
-                    outputs = self._truncate_to_horizon(outputs, target_h)
-                    _, loss_dict = self.loss_fn(outputs, y, x)
+                    _, loss_dict = self._compute_loss(
+                        outputs, y, x, horizons
+                    )
             else:
                 outputs = self.model(x, freq_ids, covariates)
-                outputs = self._truncate_to_horizon(outputs, target_h)
-                _, loss_dict = self.loss_fn(outputs, y, x)
+                _, loss_dict = self._compute_loss(
+                    outputs, y, x, horizons
+                )
 
             for k, v in loss_dict.items():
                 val_key = f"val_{k}"
@@ -142,6 +145,33 @@ class NanoForecastTrainer:
             total_losses[k] /= num_batches
 
         return total_losses
+
+    def _compute_loss(self, outputs, y, x, horizons=None):
+        """Compute loss with per-sample truncation for multi-horizon."""
+        if horizons is None:
+            # Legacy path: truncate to padded y length
+            target_h = y.shape[-1]
+            outputs = self._truncate_to_horizon(outputs, target_h)
+            return self.loss_fn(outputs, y, x)
+
+        # Multi-horizon: per-sample loss, then average
+        B = y.shape[0]
+        losses = []
+        for i in range(B):
+            h = int(horizons[i].item())
+            # Truncate model output and target to actual horizon
+            out_i = {k: v[i:i+1, ..., :h] if v.dim() >= 3 else v[i:i+1]
+                     for k, v in outputs.items()
+                     if k not in ("loc", "scale")}
+            out_i["loc"] = outputs["loc"][i:i+1]
+            out_i["scale"] = outputs["scale"][i:i+1]
+            y_i = y[i:i+1, ..., :h]
+            x_i = x[i:i+1]
+            loss_i, _ = self.loss_fn(out_i, y_i, x_i)
+            losses.append(loss_i)
+
+        total = torch.stack(losses).mean()
+        return total, {"loss_total": total.item()}
 
     @staticmethod
     def _truncate_to_horizon(
