@@ -2,59 +2,69 @@ import torch
 import torch.nn as nn
 from typing import Tuple, Dict
 
-class InstanceRobustScaler(nn.Module):
+
+class DARTNorm(nn.Module):
+    """Drift-Aware Rolling Timescale Normalization (Reverso-style).
+
+    Computes mean/std from the *context* window only, so normalization
+    statistics never leak future information.  During streaming inference
+    the context window is the same as training — no adaptation needed.
     """
-    Normalizes time series instances using median and Interquartile Range (IQR).
-    This handles outliers much better than mean/std scaling.
-    """
-    def __init__(self, eps: float = 0.1):
+    def __init__(self, eps: float = 1e-6):
         super().__init__()
         self.eps = eps
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args:
-            x: Input tensor of shape [batch_size, channels, seq_len]
+            x: Input tensor of shape [B, C, L] (context window only).
         Returns:
-            x_scaled: Scaled tensor of shape [batch_size, channels, seq_len]
-            median: Instance medians of shape [batch_size, channels, 1]
-            iqr: Instance IQRs of shape [batch_size, channels, 1]
+            x_scaled, mean, std — all [B, C, ...] shaped for inverse transform.
         """
-        # Sort sequence along the last dimension
-        # Note: sorting is universally supported and robust to ONNX export, unlike torch.median.
+        mean = x.mean(dim=-1, keepdim=True)
+        std = x.std(dim=-1, keepdim=True, unbiased=False)
+        std = torch.clamp(std, min=self.eps)
+        x_scaled = (x - mean) / std
+        return x_scaled, mean, std
+
+    @staticmethod
+    def inverse_transform(
+        x_scaled: torch.Tensor, mean: torch.Tensor, std: torch.Tensor
+    ) -> torch.Tensor:
+        """Restore original scale. Handles quantile dim (4D scaled, 3D stats)."""
+        if x_scaled.dim() == 4 and mean.dim() == 3:
+            mean = mean.unsqueeze(2)
+            std = std.unsqueeze(2)
+        return x_scaled * std + mean
+
+
+class InstanceRobustScaler(nn.Module):
+    """Legacy median/IQR scaler — kept for backward compat with v0.1-v0.3."""
+    def __init__(self, eps: float = 0.1):
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         sorted_x, _ = torch.sort(x, dim=-1)
         seq_len = x.shape[-1]
-        
         idx_50 = seq_len // 2
         median = sorted_x[..., idx_50:idx_50+1]
-        
         idx_25 = int(0.25 * seq_len)
         idx_75 = int(0.75 * seq_len)
-        
         q25 = sorted_x[..., idx_25:idx_25+1]
         q75 = sorted_x[..., idx_75:idx_75+1]
-        
         iqr = q75 - q25
-        # Avoid division by zero for flat lines
         iqr = torch.clamp(iqr, min=self.eps)
-        
         x_scaled = (x - median) / iqr
         return x_scaled, median, iqr
 
     @staticmethod
-    def inverse_transform(x_scaled: torch.Tensor, median: torch.Tensor, iqr: torch.Tensor) -> torch.Tensor:
-        """
-        Restores scaled data to its original scale.
-        Args:
-            x_scaled: Scaled tensor [batch_size, channels, seq_len_out] or [batch_size, channels, num_quantiles, seq_len_out]
-            median: Medians of shape [batch_size, channels, 1] or matching shape
-            iqr: IQRs of shape [batch_size, channels, 1] or matching shape
-        """
-        # If output includes a quantile dimension, align median and iqr
+    def inverse_transform(
+        x_scaled: torch.Tensor, median: torch.Tensor, iqr: torch.Tensor
+    ) -> torch.Tensor:
         if x_scaled.dim() == 4 and median.dim() == 3:
-            median = median.unsqueeze(2)  # [batch, channel, 1, 1]
-            iqr = iqr.unsqueeze(2)        # [batch, channel, 1, 1]
-            
+            median = median.unsqueeze(2)
+            iqr = iqr.unsqueeze(2)
         return x_scaled * iqr + median
 
 

@@ -3,90 +3,97 @@ import torch
 from torch.utils.data import Dataset, Sampler
 from typing import List, Dict, Tuple, Optional
 
+
 class TimeSeriesDataset(Dataset):
-    """
-    PyTorch Dataset wrapping time series records.
-    Provides option for real-time data augmentations.
+    """Dataset wrapping time series records with Reverso-style augmentation
+    and multi-horizon slicing support.
     """
     def __init__(
-        self, 
-        records: List[Dict], 
+        self,
+        records: List[Dict],
         augment: bool = False,
-        augment_prob: float = 0.5
+        augment_prob: float = 0.5,
+        multi_horizon: bool = False,
+        min_horizon: int = 12,
     ):
         self.records = records
         self.augment = augment
         self.augment_prob = augment_prob
+        self.multi_horizon = multi_horizon
+        self.min_horizon = min_horizon
 
     def __len__(self) -> int:
         return len(self.records)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         rec = self.records[idx]
-        
-        # Extract features
-        # Add channel dimension: [C, L] -> here C=1 (univariate targets)
-        x = torch.tensor(rec["context"], dtype=torch.float32).unsqueeze(0)
-        y = torch.tensor(rec["prediction"], dtype=torch.float32).unsqueeze(0)
-        
-        freq_id = torch.tensor(rec["freq_id"], dtype=torch.long)
-        
-        # Handle covariates
-        covariates = torch.tensor(rec["context_covariates"], dtype=torch.float32)
-        
-        # Apply data augmentation if requested
+
+        ctx = np.array(rec["context"], dtype=np.float32)
+        pred = np.array(rec["prediction"], dtype=np.float32)
+        full = np.concatenate([ctx, pred])
+
+        if self.multi_horizon and len(full) > len(ctx) + self.min_horizon:
+            max_h = len(pred)
+            h = np.random.randint(self.min_horizon, max_h + 1)
+            ctx_out = full[:len(ctx)]
+            y_out = full[len(ctx):len(ctx) + h]
+        else:
+            ctx_out = ctx
+            y_out = pred
+            h = len(pred)
+
         if self.augment and np.random.rand() < self.augment_prob:
-            x, covariates = self._apply_augmentations(x, covariates)
-            
+            ctx_out, y_out = self._reverso_augment(ctx_out, y_out)
+
+        x = torch.tensor(ctx_out, dtype=torch.float32).unsqueeze(0)
+        y = torch.tensor(y_out, dtype=torch.float32).unsqueeze(0)
+        freq_id = torch.tensor(rec["freq_id"], dtype=torch.long)
+        covariates = torch.tensor(
+            rec["context_covariates"], dtype=torch.float32
+        )
+
         return {
             "x": x,
             "y": y,
             "freq_id": freq_id,
-            "covariates": covariates
+            "covariates": covariates,
+            "horizon": h,
         }
 
-    def _apply_augmentations(
-        self, 
-        x: torch.Tensor, 
-        covariates: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Applies random scale adjustments, shifting, and jitter noise.
-        """
-        # Random scale multiplier: multiply target by [0.5, 2.0]
-        scale = np.random.uniform(0.5, 2.0)
-        x = x * scale
-        
-        # Random shifting offset: add constant offset to target
-        shift = np.random.uniform(-2.0, 2.0)
-        x = x + shift
-        
-        # Add random noise jitter
+    def _reverso_augment(
+        self, ctx: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Reverso/TSAug-style augmentation: jitter, scale, shift, mask, reverse."""
+        if np.random.rand() > 0.3:
+            std = max(np.std(ctx), 1e-6)
+            ctx = ctx + np.random.randn(*ctx.shape).astype(np.float32) * std * 0.05
+            y = y + np.random.randn(*y.shape).astype(np.float32) * std * 0.05
+
         if np.random.rand() > 0.5:
-            noise = torch.randn_like(x) * 0.05
-            x = x + noise
-            
-        # Randomly mask 5-15% of values (simulate missing values)
+            scale = np.random.uniform(0.8, 1.2)
+            ctx = ctx * scale
+            y = y * scale
+
+        if np.random.rand() > 0.5:
+            shift = np.random.uniform(-1.0, 1.0)
+            ctx = ctx + shift
+            y = y + shift
+
         if np.random.rand() > 0.7:
-            seq_len = x.shape[-1]
-            mask_len = int(np.random.uniform(0.05, 0.15) * seq_len)
-            mask_start = np.random.randint(0, seq_len - mask_len)
-            x[..., mask_start:mask_start+mask_len] = 0.0
-            
-        return x, covariates
+            L = len(ctx)
+            mask_len = int(np.random.uniform(0.05, 0.15) * L)
+            start = np.random.randint(0, L - mask_len)
+            ctx = ctx.copy()
+            ctx[start:start + mask_len] = 0.0
+
+        if np.random.rand() > 0.8:
+            ctx = ctx[::-1].copy()
+
+        return ctx, y
 
 
 class ResolutionBatchSampler(Sampler):
-    """
-    Resolution-Aware Batch Sampler.
-    Groups indices by their frequency ID and yields batches containing
-    series of ONLY one frequency. This allows the model to learn frequency-specific
-    priors cleanly within a batch.
-
-    By default `drop_last=False` and `min_batch_size=1`, so partial remainder
-    batches are emitted rather than dropped silently. Set `drop_last=True` to
-    recover the original strict behaviour.
-    """
+    """Resolution-Aware Batch Sampler. Groups indices by frequency ID."""
     def __init__(
         self,
         freq_ids: List[int],
@@ -131,7 +138,6 @@ class ResolutionBatchSampler(Sampler):
             if self.drop_last:
                 total += n // self.batch_size
             else:
-                # ceil(n / batch_size) with min_batch_size filtering
                 full, rem = divmod(n, self.batch_size)
                 total += full + (1 if rem >= self.min_batch_size else 0)
         return total
@@ -144,11 +150,17 @@ def create_dataloader(
     shuffle: bool = True,
     drop_last: bool = False,
     min_batch_size: int = 1,
+    num_workers: int = 0,
+    multi_horizon: bool = False,
+    min_horizon: int = 12,
 ) -> torch.utils.data.DataLoader:
-    """
-    Helper function to wrap dataset in a DataLoader using ResolutionBatchSampler.
-    """
-    dataset = TimeSeriesDataset(records, augment=augment)
+    """Helper function to wrap dataset in a DataLoader."""
+    dataset = TimeSeriesDataset(
+        records,
+        augment=augment,
+        multi_horizon=multi_horizon,
+        min_horizon=min_horizon,
+    )
     freq_ids = [rec["freq_id"] for rec in records]
 
     sampler = ResolutionBatchSampler(
@@ -162,7 +174,8 @@ def create_dataloader(
     loader = torch.utils.data.DataLoader(
         dataset,
         batch_sampler=sampler,
-        num_workers=0,
-        pin_memory=True
+        num_workers=num_workers,
+        pin_memory=False,
+        persistent_workers=num_workers > 0,
     )
     return loader

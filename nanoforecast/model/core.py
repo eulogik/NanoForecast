@@ -4,7 +4,7 @@ import torch.nn as nn
 from typing import Dict, List, Optional, Tuple, Union
 
 from nanoforecast.config import NanoForecastConfig
-from nanoforecast.model.utils import InstanceRobustScaler, ResolutionPrefixEmbedding, AdaptivePatching, PatchPositionalEncoding
+from nanoforecast.model.utils import DARTNorm, InstanceRobustScaler, ResolutionPrefixEmbedding, AdaptivePatching, PatchPositionalEncoding
 from nanoforecast.model.blocks import SequenceMixingBlock, DeltaNetState
 from nanoforecast.model.heads import PointForecastHead, MonotonicQuantileHead, AnomalyDetectionHead, DecompositionHead
 from nanoforecast.hub import NanoForecastHubMixin
@@ -40,7 +40,7 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
         self.patch_size = config.patch_size
         self.d_model = config.d_model
 
-        self.scaler = InstanceRobustScaler()
+        self.scaler = DARTNorm() if config.use_dart_norm else InstanceRobustScaler()
         self.patcher = AdaptivePatching(self.patch_size, self.d_model)
 
         self.freq_embedder = ResolutionPrefixEmbedding(config.num_frequencies, self.d_model)
@@ -92,15 +92,19 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
             Dict containing scaled predictions, quantiles, anomaly scores, and decomposition.
         """
         B, C, L = x.shape
-        assert L == self.config.context_length, f"Expected input sequence length {self.config.context_length}, got {L}"
+        assert L == self.config.context_length, (
+            f"Expected input sequence length {self.config.context_length}, got {L}"
+        )
 
-        x_scaled, median, iqr = self.scaler(x)
+        x_scaled, loc, scale = self.scaler(x)
 
         patches, padding_len = self.patcher(x_scaled)
 
         if covariates is not None and self.config.covariate_dim > 0:
             if padding_len > 0:
-                covariates = torch.nn.functional.pad(covariates, (0, padding_len), mode="constant", value=0)
+                covariates = torch.nn.functional.pad(
+                    covariates, (0, padding_len), mode="constant", value=0
+                )
 
             cov_dim = covariates.shape[1]
             cov_unfolded = covariates.view(B, cov_dim, self.num_patches, self.patch_size)
@@ -114,7 +118,6 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
 
         seq = torch.cat([prefix, patches], dim=1)
 
-        # 4b. Add positional encoding to patch tokens
         seq = self.pos_encoder(seq)
 
         for layer in self.layers:
@@ -124,15 +127,13 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
 
         latent_features = seq[:, 1:, :]
 
-        pred_scaled = self.point_head(latent_features)            # [BC, prediction_length]
-        quantiles_scaled = self.quantile_head(latent_features)    # [BC, 5, prediction_length]
-        recon_scaled = self.anomaly_head(latent_features)          # [BC, context_length]
+        pred_scaled = self.point_head(latent_features)
+        quantiles_scaled = self.quantile_head(latent_features)
+        recon_scaled = self.anomaly_head(latent_features)
 
-        # Decomposition operates on the patch grid (unit scale)
-        trend_p, season_p = self.decomp_head(latent_features)      # [BC, num_patches]
-        # Upsample to step grid (learned linear along the patch axis)
-        trend_s = self.trend_upsample(trend_p)                     # [BC, prediction_length]
-        season_s = self.season_upsample(season_p)                  # [BC, prediction_length]
+        trend_p, season_p = self.decomp_head(latent_features)
+        trend_s = self.trend_upsample(trend_p)
+        season_s = self.season_upsample(season_p)
         residual_s = pred_scaled - trend_s - season_s
 
         pred_scaled = pred_scaled.view(B, C, self.config.prediction_length)
@@ -141,16 +142,16 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
         trend_s = trend_s.view(B, C, self.config.prediction_length)
         season_s = season_s.view(B, C, self.config.prediction_length)
         residual_s = residual_s.view(B, C, self.config.prediction_length)
-        # Patch-grid scaled trend (unit scale) for scale-invariant smoothness loss
         trend_scaled_patches = trend_p.view(B, C, self.num_patches)
 
-        pred = InstanceRobustScaler.inverse_transform(pred_scaled, median, iqr)
-        quantiles = InstanceRobustScaler.inverse_transform(quantiles_scaled, median, iqr)
-        reconstructed = InstanceRobustScaler.inverse_transform(recon_scaled, median, iqr)
+        InverseT = self.scaler.inverse_transform
+        pred = InverseT(pred_scaled, loc, scale)
+        quantiles = InverseT(quantiles_scaled, loc, scale)
+        reconstructed = InverseT(recon_scaled, loc, scale)
 
-        trend = trend_s * iqr + median
-        seasonal = season_s * iqr
-        residual = residual_s * iqr
+        trend = trend_s * scale + loc
+        seasonal = season_s * scale
+        residual = residual_s * scale
 
         return {
             "forecast": pred,
@@ -164,8 +165,8 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
             "residual": residual,
             "trend_scaled_patches": trend_scaled_patches,
             "latent_features": latent_features,
-            "median": median,
-            "iqr": iqr,
+            "loc": loc,
+            "scale": scale,
         }
 
     @torch.no_grad()
@@ -176,23 +177,16 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
         delta_states: List[DeltaNetState],
         covariates: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
-        """Incremental forward pass that preserves DeltaNet states across calls.
-
-        Same outputs as ``forward()`` but accepts a list of per-layer
-        ``DeltaNetState`` objects that are mutated in-place, allowing the
-        recurrent memory to carry across successive calls.
-
-        ``delta_states`` must be an empty list or a list of ``num_layers``
-        previously-obtained states (e.g. from a prior ``forward_stream`` call).
-        If empty, fresh zero-states are created internally.
-        """
+        """Incremental forward pass that preserves DeltaNet states across calls."""
         B, C, L = x.shape
-        x_scaled, median, iqr = self.scaler(x)
+        x_scaled, loc, scale = self.scaler(x)
         patches, padding_len = self.patcher(x_scaled)
 
         if covariates is not None and self.config.covariate_dim > 0:
             if padding_len > 0:
-                covariates = torch.nn.functional.pad(covariates, (0, padding_len), mode="constant", value=0)
+                covariates = torch.nn.functional.pad(
+                    covariates, (0, padding_len), mode="constant", value=0
+                )
             cov_dim = covariates.shape[1]
             cov_unfolded = covariates.view(B, cov_dim, self.num_patches, self.patch_size)
             cov_unfolded = cov_unfolded.permute(0, 2, 1, 3).contiguous()
@@ -233,12 +227,13 @@ class NanoForecast(NanoForecastHubMixin, nn.Module):
         season_s = season_s.view(B, C, self.config.prediction_length)
         residual_s = residual_s.view(B, C, self.config.prediction_length)
 
-        pred = InstanceRobustScaler.inverse_transform(pred_scaled, median, iqr)
-        quantiles = InstanceRobustScaler.inverse_transform(quantiles_scaled, median, iqr)
-        reconstructed = InstanceRobustScaler.inverse_transform(recon_scaled, median, iqr)
-        trend = trend_s * iqr + median
-        seasonal = season_s * iqr
-        residual = residual_s * iqr
+        InverseT = self.scaler.inverse_transform
+        pred = InverseT(pred_scaled, loc, scale)
+        quantiles = InverseT(quantiles_scaled, loc, scale)
+        reconstructed = InverseT(recon_scaled, loc, scale)
+        trend = trend_s * scale + loc
+        seasonal = season_s * scale
+        residual = residual_s * scale
 
         return {
             "forecast": pred,

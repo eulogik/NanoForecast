@@ -22,7 +22,8 @@ class NanoForecastConfig:
     
     # Gating and features
     use_gated_router: bool = True
-    
+    use_dart_norm: bool = False  # v0.5: DART-Norm (causal mean/std) instead of median/IQR
+
     @classmethod
     def nano_200k(cls) -> "NanoForecastConfig":
         return cls(
@@ -41,4 +42,19 @@ class NanoForecastConfig:
             patch_size=8,
             dropout=0.1,
             expansion_factor=2
+        )
+
+    @classmethod
+    def nano_v05(cls) -> "NanoForecastConfig":
+        """v0.5: DART-Norm + dense next-token training recipe."""
+        return cls(
+            d_model=96,
+            num_layers=8,
+            patch_size=8,
+            dropout=0.1,
+            expansion_factor=2,
+            context_length=512,
+            prediction_length=96,
+            use_gated_router=True,
+            use_dart_norm=True,
         )
