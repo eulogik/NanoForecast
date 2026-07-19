@@ -16,7 +16,7 @@ class NanoForecastTrainer:
     def __init__(
         self,
         model: NanoForecast,
-        loss_fn: NanoForecastLoss | MultiTaskLoss,
+        loss_fn: "NanoForecastLoss | MultiTaskLoss",
         lr: float = 5e-4,
         weight_decay: float = 0.01,
         clip_grad: float = 1.0,
