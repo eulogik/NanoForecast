@@ -161,11 +161,16 @@ class NanoForecastTrainer:
         quantiles = []
         for i in range(B):
             h = int(horizons[i].item())
-            out_i = {k: v[i:i+1, ..., :h] if v.dim() >= 3 else v[i:i+1]
-                     for k, v in outputs.items()
-                     if k not in ("loc", "scale")}
-            out_i["loc"] = outputs["loc"][i:i+1]
-            out_i["scale"] = outputs["scale"][i:i+1]
+            out_i = {}
+            for k, v in outputs.items():
+                if k in ("loc", "scale"):
+                    out_i[k] = v[i:i+1]
+                elif v.dim() >= 3 and v.shape[-1] == self.model.config.prediction_length:
+                    out_i[k] = v[i:i+1, ..., :h]
+                elif v.dim() >= 3:
+                    out_i[k] = v[i:i+1]
+                else:
+                    out_i[k] = v[i:i+1]
             y_i = y[i:i+1, ..., :h]
             x_i = x[i:i+1]
             loss_i, d_i = self.loss_fn(out_i, y_i, x_i)
