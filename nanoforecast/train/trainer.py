@@ -157,9 +157,10 @@ class NanoForecastTrainer:
         # Multi-horizon: per-sample loss, then average
         B = y.shape[0]
         losses = []
+        mses = []
+        quantiles = []
         for i in range(B):
             h = int(horizons[i].item())
-            # Truncate model output and target to actual horizon
             out_i = {k: v[i:i+1, ..., :h] if v.dim() >= 3 else v[i:i+1]
                      for k, v in outputs.items()
                      if k not in ("loc", "scale")}
@@ -167,11 +168,17 @@ class NanoForecastTrainer:
             out_i["scale"] = outputs["scale"][i:i+1]
             y_i = y[i:i+1, ..., :h]
             x_i = x[i:i+1]
-            loss_i, _ = self.loss_fn(out_i, y_i, x_i)
+            loss_i, d_i = self.loss_fn(out_i, y_i, x_i)
             losses.append(loss_i)
+            mses.append(d_i.get("loss_mse", 0))
+            quantiles.append(d_i.get("loss_quantile", 0))
 
         total = torch.stack(losses).mean()
-        return total, {"loss_total": total.item()}
+        return total, {
+            "loss_total": total.item(),
+            "loss_mse": sum(mses) / len(mses),
+            "loss_quantile": sum(quantiles) / len(quantiles),
+        }
 
     @staticmethod
     def _truncate_to_horizon(
@@ -226,7 +233,7 @@ class NanoForecastTrainer:
                 f"Epoch {epoch:02d}/{epochs:02d} | "
                 f"Loss: {metrics['loss_total']:.4f} | "
                 f"Val Loss: {metrics['val_loss_total']:.4f} | "
-                f"Val Pt: {vl:.4f} | "
+                f"Val MSE: {vl:.4f} | "
                 f"Val Q: {vq:.4f}"
             )
 
