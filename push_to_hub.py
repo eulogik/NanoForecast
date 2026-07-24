@@ -58,16 +58,31 @@ def render_model_card(
         "  - time-series",
         "  - forecasting",
         "  - pytorch",
-        "  - deployable",
+        "  - transformer",
         "  - edge-ai",
         "  - onnx",
+        "  - deployable",
+        "  - lightweight",
+        "  - cpu-inference",
+        "  - streaming",
+        "  - real-time",
+        "  - iot",
+        "  - quantile-regression",
+        "  - zero-shot",
+        "  - foundation-model",
+        "  - longconv",
+        "  - deltanet",
+        "  - probabilistic-forecasting",
+        "  - uncertainty-quantification",
+        "library_name: nanoforecast",
+        "pipeline_tag: time-series-forecasting",
         "---",
         "",
         f"# {repo_id.split('/')[-1]}",
         "",
         f"NanoForecast is the **world's most deployable** time series forecasting model "
          f"(~{params/1e3:.0f}K parameters). It trains on a laptop, runs on a Raspberry Pi, "
-         f"and exports to 1.4 MB ONNX for edge/IoT/browser deployment.",
+         f"and exports to ONNX for edge/IoT/browser deployment.",
          "",
          "Built by [Eulogik](https://eulogik.com) — deployable AI for the real world.",
          "",
@@ -86,33 +101,18 @@ def render_model_card(
          f"- **Architecture**: LongConv + DeltaNet RNN + Gated Router + MLP",
          f"- **Streaming inference**: Stateful DeltaNet — feed one value at a time",
          "",
-         "## Deploy",
-         "",
-         "```bash",
-         "# FastAPI server",
-         "pip install nanoforecast fastapi uvicorn python-multipart",
-         "python3 deploy/fastapi_server.py",
-         "",
-         "# Docker",
-         "docker build -t nanoforecast -f deploy/Dockerfile .",
-         "docker run -p 8000:8000 nanoforecast",
-         "",
-         "# ONNX export (1.4 MB)",
-         "pip install \"nanoforecast[onnx]\"",
-         "python3 -m nanoforecast.export.onnx_export --checkpoint <checkpoint-dir> --output nanoforecast.onnx",
-         "```",
-        "",
-        "## Training",
-        "",
     ]
+
     if training:
+        md.append("## Training")
+        md.append("")
         md.append(f"- **Datasets**: {', '.join(training.get('datasets', []))}")
         md.append(f"- **Epochs**: {training.get('epochs')}")
         md.append(f"- **Learning rate**: {training.get('lr')}")
         md.append(f"- **Batch size**: {training.get('batch_size')}")
         md.append(f"- **Best epoch**: {training.get('best_epoch')} (val_loss={training.get('best_val_loss', float('nan')):.4f})")
         md.append(f"- **Wall time**: {training.get('wall_time_s', 0):.1f}s")
-    md.append("")
+        md.append("")
 
     if benchmark and benchmark.get("datasets"):
         md.append("## Benchmarks")
@@ -141,6 +141,34 @@ def render_model_card(
         "print(out['quantiles'].shape)  # (5, 48)  p10..p90",
         "```",
         "",
+        "## Deploy",
+        "",
+        "```bash",
+        "# FastAPI server",
+        "pip install nanoforecast fastapi uvicorn python-multipart",
+        "python3 deploy/fastapi_server.py",
+        "",
+        "# Docker",
+        "docker build -t nanoforecast -f deploy/Dockerfile .",
+        "docker run -p 8000:8000 nanoforecast",
+        "",
+        "# ONNX export",
+        "pip install \"nanoforecast[onnx]\"",
+        "python3 -m nanoforecast.export.onnx_export --checkpoint <checkpoint-dir> --output nanoforecast.onnx",
+        "```",
+        "",
+        "## Streaming Inference",
+        "",
+        "```python",
+        "# Stream new observations one at a time (unique to NanoForecast)",
+        "result = model.predict(context, horizon=48, return_state=True)",
+        "state = result.pop('state')",
+        "",
+        "for new_val in incoming_stream:",
+        "    result = model.predict_step(new_val, state, horizon=48)",
+        "    print(result['forecast'][0, :5])  # updated forecast instantly",
+        "```",
+        "",
         "## Try it in a browser",
         "",
         f"Upload your CSV to the [Gradio Space](https://huggingface.co/spaces/",
@@ -148,8 +176,8 @@ def render_model_card(
         "",
         "## Known limitations",
         "",
-        "This checkpoint was trained on 6 real datasets + 50K synthetic records for 100 epochs. "
-        "It is **not** a production foundation model. Accuracy is modest (MASE ~3.45 overall). "
+        "This checkpoint was trained on 6 real datasets + 10K synthetic records for 200 epochs. "
+        "It is **not** a production foundation model. Accuracy is modest (MASE ~1.326 overall). "
         "What it does well: being deployable. Train on your own data for better accuracy.",
         "",
         "## Attribution",
