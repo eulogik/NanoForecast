@@ -98,8 +98,8 @@ def render_model_card(
          f"- **Patch size**: {cfg['patch_size']}",
          f"- **Hidden dim / layers**: {cfg['d_model']} / {cfg['num_layers']}",
          f"- **Quantiles**: {cfg['quantiles']}",
-         f"- **Architecture**: LongConv + DeltaNet RNN + Gated Router + MLP",
-         f"- **Streaming inference**: Stateful DeltaNet — feed one value at a time",
+         "- **Architecture**: LongConv + DeltaNet RNN + Gated Router + MLP",
+         "- **Streaming inference**: Stateful DeltaNet — feed one value at a time",
          "",
     ]
 
@@ -171,7 +171,7 @@ def render_model_card(
         "",
         "## Try it in a browser",
         "",
-        f"Upload your CSV to the [Gradio Space](https://huggingface.co/spaces/",
+        "Upload your CSV to the [Gradio Space](https://huggingface.co/spaces/",
         f"{repo_id.split('/')[0]}/nanoforecast) and get a forecast in seconds.",
         "",
         "## Known limitations",
