@@ -1,15 +1,16 @@
 # 🔮 NanoForecast
 
-**World's most deployable time series transformer**
+**World's most deployable time series transformer — 6.5M params, CPU inference, MASE 1.326**
 
 [![PyPI](https://img.shields.io/pypi/v/nanoforecast)](https://pypi.org/project/nanoforecast/)
 [![Downloads](https://img.shields.io/pypi/dm/nanoforecast)](https://pypi.org/project/nanoforecast/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](./pyproject.toml)
-[![HF Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/eulogik/nanoforecast)
+[![HF v0.5](https://img.shields.io/badge/🤗%20Model-v0.5-red)](https://huggingface.co/eulogik/nanoforecast-v05)
+[![HF Spaces](https://img.shields.io/badge/🤗%20Live%20Demo-blueviolet)](https://huggingface.co/spaces/eulogik/nanoforecast)
 [![HF 200k](https://img.shields.io/badge/🤗%20Model-200k-blue)](https://huggingface.co/eulogik/nanoforecast-200k)
-[![HF 500k](https://img.shields.io/badge/🤗%20Model-500k-blue)](https://huggingface.co/eulogik/nanoforecast-500k)
 [![HF v0.3](https://img.shields.io/badge/🤗%20Model-v0.3-blue)](https://huggingface.co/eulogik/nanoforecast-v03)
+[![Colab](https://img.shields.io/badge/📓-Train%20in%20Colab-F9AB00)](https://colab.research.google.com/github/eulogik/NanoForecast/blob/v0.5/deploy/colab_training_v05.ipynb)
 [![Paper](https://img.shields.io/badge/📄%20Paper-LaTeX-lightgrey)](./deploy/paper.tex)
 [![Eulogik](https://img.shields.io/badge/by-Eulogik-purple)](https://eulogik.com)
 
@@ -260,6 +261,28 @@ python3 push_to_hub.py \
 
 ## Benchmarks
 
+### v0.5 — MASE 1.326 overall (51% better than v0.3)
+
+| Dataset | MASE ↓ | sMAPE (%) | MAE | CRPS |
+|---:|---:|---:|---:|---:|
+| ETTh1 | **0.913** | 5.89 | 0.607 | 0.425 |
+| ETTh2 | **0.914** | 3.54 | 0.826 | 0.561 |
+| ETTm1 | **1.305** | 7.22 | 0.436 | 0.304 |
+| exchange_rate | **3.578** | 0.80 | 0.005 | 0.004 |
+| electricity | **0.709** | 2.63 | 87.027 | 59.932 |
+| traffic | **0.535** | 13.40 | 0.002 | 0.002 |
+| **Overall** | **1.326** | **5.58** | **14.817** | **10.205** |
+
+### v0.5 vs v0.3 vs v0.2 — Same architecture, different data pipeline
+
+| Version | Params | MASE ↓ | Improvement | Training |
+|:---|---:|---:|:---|:---|
+| v0.2 (1.6M) | 1.6M | 3.45 | baseline | Mac Mini, 100 epochs |
+| v0.3 (6.5M) | 6.5M | 2.73 | ↓ 21% | Colab T4, 200 epochs |
+| **v0.5 (6.5M)** | **6.5M** | **1.326** | **↓ 51%** | **Colab T4, 200 epochs** |
+
+> **Key insight**: v0.5 achieved a 51% MASE improvement over v0.3 with **zero architecture changes**. The gains came entirely from fixing the training pipeline (loss computation, tensor truncation, data mixing).
+
 ### v0.3 (d_model=96, 6.5M params, context=512, 200 epochs, Colab T4)
 
 | Dataset | MASE | sMAPE (%) | MAE | CRPS |
@@ -270,7 +293,7 @@ python3 push_to_hub.py \
 | exchange_rate | **7.44** | 1.72 | 0.011 | 0.014 |
 | electricity | **1.29** | 4.76 | 158.30 | 175.24 |
 | traffic | **0.81** | 24.00 | 0.004 | 0.003 |
-| **Overall** | **2.73** | 10.62 | 27.13 | 29.83 |
+| **Overall** | **2.73** | **10.62** | **27.13** | **29.83** |
 
 ### v0.2 (d_model=64, 1.6M params, context=256, 100 epochs, Mac Mini M4)
 
@@ -282,21 +305,7 @@ python3 push_to_hub.py \
 | exchange_rate | **7.31** | 1.63 | 0.010 | 0.009 |
 | electricity | **1.54** | 5.65 | 189.75 | 187.26 |
 | traffic | **1.25** | 44.80 | 0.006 | 0.006 |
-| **Overall** | **3.45** | 18.68 | 32.76 | 32.10 |
-
-### v0.3 vs v0.2 comparison
-
-| Dataset | v0.2 | v0.3 | Improvement |
-|---:|---:|---:|---|
-| ETTh1 | 3.34 | **1.95** | ↓ 42% |
-| ETTh2 | 3.71 | **2.74** | ↓ 26% |
-| ETTm1 | 3.58 | **2.17** | ↓ 39% |
-| exchange_rate | 7.31 | 7.44 | ↑ 2% |
-| electricity | 1.54 | **1.29** | ↓ 16% |
-| traffic | 1.25 | **0.81** | ↓ 35% |
-| **Overall** | **3.45** | **2.73** | **↓ 21%** |
-
-v0.3 beats v0.2 on 5 of 6 datasets. Larger model (6.5M vs 1.6M) and longer context (512 vs 256) provide significant accuracy gains on ETTh1/ETTh2/ETTm1. Exchange rate (volatile FX) slightly regresses.
+| **Overall** | **3.45** | **18.68** | **32.76** | **32.10** |
 
 ---
 
@@ -304,9 +313,9 @@ v0.3 beats v0.2 on 5 of 6 datasets. Larger model (6.5M vs 1.6M) and longer conte
 
 | Issue | Status |
 |---|---|
-| **Accuracy** | Modest vs SOTA (MASE ~2.73 overall for v0.3). Good enough for prototypes, not production forecasting at scale. |
-| **Training** | Multi-dataset mixing (v0.3: 6 real + 10K synthetic, 200 epochs). |
-| **Context** | Fixed 256 — longer history is truncated. |
+| **Accuracy** | MASE 1.326 overall — competitive with models 10× larger, but not SOTA (TimesFM, Chronos). Good for deployment, not research. |
+| **Training** | Multi-dataset mixing (v0.5: 6 real + 10K synthetic, 200 epochs, Colab T4 ~12h). |
+| **Context** | Fixed 512 — longer history is truncated. |
 | **Channels** | Univariate by default; multivariate support is per-dimension independent. |
 | **Edge cases** | NaN values, missing timestamps, irregularly-sampled data not handled automatically. |
 
@@ -318,8 +327,12 @@ This is a **developer tool**, not a research paper. It prioritizes deployability
 |---|---|---|
 | v0.1 | Deployable MVP — train, predict, export, deploy | ✅ Done |
 | v0.2 | Streaming inference + train-from-CSV CLI + multi-dataset training (Mac Mini) | ✅ Done |
-| v0.3 | Colab T4 training (larger model, more data) + ONNX.js browser demo | TBD |
-| v0.4 | OpenRouter API — $0.001/forecast | TBD |
+| v0.3 | Colab T4 training (larger model, more data) + ONNX.js browser demo | ✅ Done |
+| v0.4 | Frequency-mixing experiment (MASE 7.57 — failed, not pushed) | ✅ Done (abandoned) |
+| v0.5 | Fixed training pipeline — MASE 1.326 (↓ 51% vs v0.3) | ✅ Done |
+| v0.6 | DART-Norm + multi-horizon training | 🔄 In progress |
+| v0.7 | Multivariate cross-series dependencies | 📋 Planned |
+| v0.8 | OpenRouter API — $0.001/forecast | 📋 Planned |
 
 ## Why "NanoForecast"?
 
