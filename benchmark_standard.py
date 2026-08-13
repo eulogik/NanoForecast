@@ -200,7 +200,7 @@ class PatchTSTModel:
                 c_ctx = norm[ci][max(0, t1 + s - CTX):t1 + s]
                 if c_ctx.shape[0] < CTX:
                     c_ctx = np.concatenate([np.zeros(CTX - c_ctx.shape[0], np.float32), c_ctx])
-                cb = torch.from_numpy(c_ctx[None, :, None]).to(DEVICE)  # (1, L, 1)
+                cb = torch.from_numpy(c_ctx[None, :, None].astype(np.float32)).to(DEVICE)  # (1, L, 1)
                 out = model(cb, None, None, None)[0].detach().cpu().numpy()  # (H, 1)
                 fc.append(out[:, 0])
         fc = np.stack(fc)
