@@ -114,6 +114,8 @@ def train_one(dataset: str, device: str):
     total = CTX + H
 
     out_dir = os.path.join(os.path.dirname(__file__), "checkpoints", "patchtst")
+    if os.path.islink(out_dir) and not os.path.exists(out_dir):
+        os.unlink(out_dir)  # broken symlink (e.g. stale Drive link) -> real dir
     os.makedirs(out_dir, exist_ok=True)
     resume_path = os.path.join(out_dir, f"{dataset}_resume.pt")
     final_path = os.path.join(out_dir, f"{dataset}.pt")
