@@ -204,7 +204,12 @@ def train_one(dataset: str, device: str):
 
     if os.path.exists(resume_path):
         os.remove(resume_path)
-    torch.save(best_state, final_path)
+    # Save the FINAL trained weights, not the val-best snapshot. The val segment
+    # is nearly flat, so val MSE saturates at the within-window variance floor
+    # within ~1 epoch; the val-*best* state is effectively an untrained
+    # level-tracker (MASE ~2.7 on ETT). Real test skill keeps improving for
+    # ~25-40 epochs, so the final model is the right artifact to ship.
+    torch.save(model.state_dict(), final_path)
     meta = {"dataset": dataset, "n_vars": C, "means": [c.mean for c in channels],
             "stds": [c.std for c in channels], "best_val_mse": best_va,
             "epochs": epoch + 1,
