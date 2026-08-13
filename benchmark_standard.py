@@ -331,11 +331,15 @@ def main():
             pass
 
     for name, model, bs in models:
-        if name in out["results"]:
-            print(f"  {name}: already present, skipping")
+        existing = out["results"].get(name, {})
+        todo = [d for d in datasets if d not in existing]
+        if not todo:
+            print(f"  {name}: all datasets already present, skipping")
             continue
-        print(f"\n=== {name} ===")
-        out["results"][name] = run_model(model, datasets, bs)
+        print(f"\n=== {name} ===  (missing: {', '.join(todo)})")
+        fresh = run_model(model, todo, bs)
+        existing.update(fresh)
+        out["results"][name] = existing
         os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
         with open(args.output, "w") as fh:
             json.dump(out, fh, indent=1)
@@ -343,8 +347,9 @@ def main():
 
     print("\n=== SUMMARY (MASE) ===")
     for name in out["results"]:
-        row = "  ".join(f"{ds}:{out['results'][name][ds]['metrics']['mase']:.3f}"
-                        for ds in datasets)
+        row = "  ".join(
+            f"{ds}:{out['results'][name][ds]['metrics']['mase']:.3f}"
+            for ds in datasets if ds in out["results"][name])
         print(f"{name:>14}  {row}")
 
 
