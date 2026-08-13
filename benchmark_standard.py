@@ -35,6 +35,10 @@ H = 48
 CTX = 512
 DEVICE = os.environ.get("NF_DEVICE", "mps" if torch.backends.mps.is_available() else "cpu")
 
+# HF repo holding trained PatchTST CI checkpoints ({ds}.pt + {ds}.json).
+# Used as a fallback so local runs work without manually downloading weights.
+PATCHTST_HF_REPO = "eulogik/nanoforecast-patchtst-baselines"
+
 SEASONALITY = {"ETTh1": 24, "ETTh2": 24, "ETTm1": 96, "exchange_rate": 7,
                "electricity": 24, "traffic": 24}
 TRAIN_VAL_FRAC = {"ETTh1": 0.90, "ETTh2": 0.90, "ETTm1": 0.90,
@@ -159,9 +163,36 @@ class PatchTSTModel:
         from benchmarks.tsl.PatchTST import Model as TSLPatchTST
         self.ckpt_dir = ckpt_dir
         self.cls = TSLPatchTST
+        os.makedirs(ckpt_dir, exist_ok=True)
         self.metas = {f[:-5]: _json.load(open(os.path.join(ckpt_dir, f)))
                       for f in sorted(os.listdir(ckpt_dir)) if f.endswith(".json")}
         self.models, self._arrays = {}, {}
+
+    def _ensure_checkpoint(self, ds: str):
+        """Download {ds}.pt + {ds}.json from HF if not present locally."""
+        if ds in self.models and ds in self.metas:
+            return
+        try:
+            from huggingface_hub import hf_hub_download
+        except ImportError:
+            raise FileNotFoundError(
+                f"checkpoint {ds}.pt missing in {self.ckpt_dir}; "
+                "install huggingface_hub to auto-fetch from HF "
+                f"(repo {PATCHTST_HF_REPO})")
+        import json as _json
+        for ext in ("json", "pt"):
+            p = os.path.join(self.ckpt_dir, f"{ds}.{ext}")
+            if not os.path.exists(p):
+                try:
+                    hf_hub_download(PATCHTST_HF_REPO, f"{ds}.{ext}",
+                                    local_dir=self.ckpt_dir)
+                except Exception as e:  # repo missing / offline / no file
+                    raise FileNotFoundError(
+                        f"checkpoint {ds}.{ext} missing in {self.ckpt_dir} and "
+                        f"could not be fetched from HF repo {PATCHTST_HF_REPO}: {e}")
+                print(f"  [patchtst] fetched {ds}.{ext} from HF")
+        if ds not in self.metas:
+            self.metas[ds] = _json.load(open(os.path.join(self.ckpt_dir, f"{ds}.json")))
 
     def _arrays_for(self, ds: str):
         if ds not in self._arrays:
@@ -170,6 +201,7 @@ class PatchTSTModel:
 
     def _model_for(self, ds: str, C: int):
         if ds not in self.models:
+            self._ensure_checkpoint(ds)
             import types
             cfg = types.SimpleNamespace(
                 task_name="long_term_forecast", seq_len=CTX, pred_len=H,
