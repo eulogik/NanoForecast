@@ -190,9 +190,12 @@ class PatchTSTModel:
                     raise FileNotFoundError(
                         f"checkpoint {ds}.{ext} missing in {self.ckpt_dir} and "
                         f"could not be fetched from HF repo {PATCHTST_HF_REPO}: {e}")
-                print(f"  [patchtst] fetched {ds}.{ext} from HF")
+                print(f"  [patchtst] WARNING: fetched {ds}.{ext} from HF "
+                      f"(repo {PATCHTST_HF_REPO}) - may be STALE weights")
         if ds not in self.metas:
             self.metas[ds] = _json.load(open(os.path.join(self.ckpt_dir, f"{ds}.json")))
+        print(f"  [patchtst] {ds} meta: epochs={self.metas[ds].get('epochs')} "
+              f"best_val_mse={self.metas[ds].get('best_val_mse')}")
 
     def _arrays_for(self, ds: str):
         if ds not in self._arrays:
