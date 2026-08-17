@@ -9,7 +9,7 @@ authors:
 
 # NanoForecast v0.5: From MASE 2.73 → 1.326 with Zero Architecture Changes
 
-*How fixing training data pipelines and loss computation slashed error by 51% on a 6.5M parameter model.*
+*How fixing training data pipelines and loss computation slashed error by 51% on a 8.3M parameter model.*
 
 ---
 
@@ -19,7 +19,7 @@ Time series forecasting models fall into two camps:
 1. **Massive foundation models** (TimesFM, Chronos, Lag-Llama) — require GPUs, 100M+ parameters, and can't run on edge devices
 2. **Small deployable models** — tiny and fast, but accuracy is usually mediocre
 
-**NanoForecast v0.5 proves you can have both**: 6.5M parameters, CPU inference, ONNX export, streaming — AND MASE 1.326 (competitive with models 10× larger).
+**NanoForecast v0.5 proves you can have both**: 8.3M parameters, CPU inference, ONNX export, streaming — AND MASE 1.326 (competitive with models 24× larger).
 
 ## The Key Insight
 
@@ -75,10 +75,10 @@ result = model.predict(context, horizon=48, freq=1)
 
 | Platform | Latency | Memory |
 |:---|---:|---:|
-| CPU (laptop) | ~5ms | ~26MB |
-| Raspberry Pi (ARM) | ~50ms | ~26MB |
+| CPU (laptop) | ~5ms | ~33MB |
+| Raspberry Pi (ARM) | ~50ms | ~33MB |
 | ONNX (browser) | ~10ms | ~1.4MB |
-| FastAPI (server) | ~5ms | ~26MB |
+| FastAPI (server) | ~5ms | ~33MB |
 
 ### Streaming inference (unique to NanoForecast)
 
@@ -97,7 +97,7 @@ No other time series model supports this. The DeltaNet RNN maintains a recurrent
 ## Training on Your Own Data
 
 ```bash
-# From CSV in 2 minutes
+# From CSV to trained model in ~12 hours
 python3 train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 # Or full pretraining on multiple datasets
@@ -118,7 +118,7 @@ python3 pretrain.py \
 
 | Feature | NanoForecast v0.5 | TimesFM | Chronos-T5 | Lag-Llama |
 |:---|:---:|:---:|:---:|:---:|
-| **Parameters** | 6.5M | 200M | 8M–710M | 16.6M |
+| **Parameters** | 8.3M | 200M | 8M–710M | 16.6M |
 | **CPU inference** | ✅ | ❌ | ⚠️ | ❌ |
 | **Streaming** | ✅ | ❌ | ❌ | ❌ |
 | **ONNX export** | ✅ | ❌ | ❌ | ❌ |
