@@ -232,7 +232,7 @@ class PatchTSTModel:
             for s in starts:
                 # evaluate channel `series_idx` of this window (channel-independent)
                 ci = series_idx % C
-                c_ctx = norm[ci][max(0, t1 + s - CTX):t1 + s]
+                c_ctx = norm[:, ci][max(0, t1 + s - CTX):t1 + s]
                 if c_ctx.shape[0] < CTX:
                     c_ctx = np.concatenate([np.zeros(CTX - c_ctx.shape[0], np.float32), c_ctx])
                 cb = torch.from_numpy(c_ctx[None, :, None].astype(np.float32)).to(DEVICE)  # (1, L, 1)
