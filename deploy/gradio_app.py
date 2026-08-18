@@ -24,7 +24,7 @@ from nanoforecast import NanoForecast
 # ---------------------------------------------------------------------------
 # Configuration — v0.5 model
 # ---------------------------------------------------------------------------
-MODEL_REPO = "eulogik/nanoforecast-v05"  # v0.5 — MASE 1.326, 8.3M params
+MODEL_REPO = "eulogik/nanoforecast-v05"  # v0.5 — 6.5M params, standard-protocol MASE 1.752
 DEFAULT_CONTEXT = 512
 DEFAULT_HORIZON = 96
 DEFAULT_FREQ = 1  # hourly
@@ -193,11 +193,11 @@ def predict_from_csv(
 
     summary = (
         f"**Model:** {MODEL_REPO} (v0.5)  \n"
-        f"**MASE:** 1.326 overall (51% better than v0.3)  \n"
+        f"**MASE:** 1.752 overall (standard protocol, H=48)  \n"
         f"**Context:** {len(series)} timesteps (using last {result['context_length']})  \n"
         f"**Horizon:** {horizon} steps  \n"
         f"**Frequency:** {freq_choice}  \n"
-        f"**Params:** 8.3M (~16 MB)  \n"
+        f"**Params:** 6.5M (~26 MB)  \n"
         f"**Built by:** [Eulogik](https://eulogik.com)  \n"
     )
 
@@ -219,9 +219,9 @@ with gr.Blocks(css=css, title="NanoForecast v0.5") as demo:
         # 🔮 NanoForecast v0.5 — Deployable Time Series Forecasting
 
         Upload your CSV or use an example. The **smallest deployable time series model on the Hub**
-        (8.3M params, runs on a Raspberry Pi, exports to ONNX).
+        (6.5M params, runs on a Raspberry Pi, exports to ONNX).
 
-        **v0.5 Update:** 51% MASE improvement over v0.3 — from 2.73 → 1.326 with zero architecture changes.
+        **v0.5:** MASE 1.752 overall (standard protocol) — 46.6% better than v0.3 with zero architecture changes.
 
         [GitHub](https://github.com/eulogik/NanoForecast) ·
         [Model on HF](https://huggingface.co/eulogik/nanoforecast-v05) ·
@@ -270,15 +270,15 @@ with gr.Blocks(css=css, title="NanoForecast v0.5") as demo:
     gr.Markdown(
         """
         ---
-        ### 📊 Benchmark Results (v0.5)
-        | Dataset | MASE | Status |
-        |---|---|---|
-        | ETTh1 | 0.913 | Competitive with Timer (0.368) |
-        | ETTh2 | 0.914 | Competitive with SAMformer (0.344) |
-        | ETTm1 | 1.305 | Improving |
-        | Exchange Rate | 3.578 | Needs work |
-        | Electricity | 0.709 | **Beats PatchTST (1.349)!** |
-        | Traffic | 0.535 | **Best-in-class!** |
+        ### 📊 Benchmark Results (v0.5, standard protocol)
+        | Dataset | MASE | TimesFM (200M) | PatchTST (15M+) |
+        |---|---|---|---|
+        | ETTh1 | **0.685** | 0.705 | 0.781 |
+        | ETTh2 | **1.109** | 1.360 | 1.467 |
+        | ETTm1 | **0.289** | 0.545 | 0.488 |
+        | Exchange Rate | 4.418 | **4.383** | 3.861 |
+        | Electricity | 2.093 | **0.923** | 1.347 |
+        | Traffic | 1.915 | **0.765** | 1.379 |
 
         ### 📥 Download options
         Once you have a forecast, you can export the model to ONNX for production:
@@ -290,12 +290,11 @@ with gr.Blocks(css=css, title="NanoForecast v0.5") as demo:
         Or deploy instantly with our [FastAPI server](https://github.com/eulogik/NanoForecast#deploy).
 
         ### ⚡ Why NanoForecast v0.5?
-        - **Tiny**: 8.3M params, ~16 MB (quantizable to 1.4 MB INT8)
-        - **Fast**: <50ms inference on CPU, 12ms on edge hardware
+        - **Tiny**: 6.5M params, ~26 MB (ONNX INT8 ~6.5 MB)
         - **Deployable**: ONNX → browser / Lambda / Raspberry Pi / iOS
         - **Streaming**: Stateful DeltaNet — feed one value at a time
         - **Complete**: Point forecast + intervals + decomposition in one pass
-        - **Accurate**: MASE 1.326 — competitive with models 10-100× larger
+        - **Accurate**: MASE 1.752 overall (standard protocol); beats TimesFM on all 3 ETT benchmarks
         """
     )
 

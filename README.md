@@ -11,7 +11,7 @@
 [![HF 200k](https://img.shields.io/badge/🤗%20Model-200k-blue)](https://huggingface.co/eulogik/nanoforecast-200k)
 [![HF v0.3](https://img.shields.io/badge/🤗%20Model-v0.3-blue)](https://huggingface.co/eulogik/nanoforecast-v03)
 [![Colab](https://img.shields.io/badge/📓-Train%20in%20Colab-F9AB00)](https://colab.research.google.com/github/eulogik/NanoForecast/blob/v0.5/deploy/colab_training_v05.ipynb)
-[![Paper](https://img.shields.io/badge/📄%20Paper-LaTeX-lightgrey)](./deploy/paper.tex)
+[![Paper](https://img.shields.io/badge/📄%20Paper-LaTeX-lightgrey)](./deploy/paper_v05.tex)
 [![Eulogik](https://img.shields.io/badge/by-Eulogik-purple)](https://eulogik.com)
 
 NanoForecast is the **world's most deployable time series foundation model** — a tiny transformer for zero-shot forecasting, streaming inference, and edge deployment. At just 200K–6.5M parameters, it runs on CPU, Raspberry Pi, and in the browser via ONNX. Unlike large foundation models that require GPUs and terabytes of data, NanoForecast:

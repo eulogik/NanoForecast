@@ -177,8 +177,8 @@ def render_model_card(
         "## Known limitations",
         "",
         "This checkpoint was trained on 6 real datasets + 10K synthetic records for 200 epochs. "
-        "It is **not** a production foundation model. Accuracy is modest (MASE ~1.326 overall). "
-        "What it does well: being deployable. Train on your own data for better accuracy.",
+        "It is **not** a production foundation model. Accuracy is modest (MASE ~1.75 overall, "
+        "standard protocol). What it does well: being deployable. Train on your own data for better accuracy.",
         "",
         "## Attribution",
         "",
