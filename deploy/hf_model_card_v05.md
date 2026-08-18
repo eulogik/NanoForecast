@@ -306,7 +306,7 @@ Upload a CSV → get a forecast + prediction intervals + decomposition plot. No 
 | `model.safetensors` | 26.1 MB |
 | `config.json` | 343 B |
 | `model_card.json` | 710 B |
-| `benchmark-v05.json` | 2.9 KB |
+| `standard_benchmark.json` | 3.1 KB |
 
 ---
 
@@ -330,7 +330,7 @@ Upload a CSV → get a forecast + prediction intervals + decomposition plot. No 
 ## 📊 Coverage Analysis
 
 Well-calibrated uncertainty estimates (measured under the internal `benchmark.py` protocol,
-see `benchmark-v05.json`):
+see `standard_benchmark.json`):
 
 | Quantile | Target | Actual (mean across datasets) |
 |:---|---:|---:|
