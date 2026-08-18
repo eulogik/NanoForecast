@@ -169,25 +169,27 @@ def predict_from_csv(
     freq_map = {"Hourly": 1, "Daily": 2, "Weekly": 3, "Monthly": 4}
     freq_id = freq_map.get(freq_choice, 1)
 
-    result = forecast_from_series(series, horizon=horizon, freq=freq_id)
-    context = series[-result["context_length"]:]
-
-    fig = build_plot(
-        context_vals=context,
-        forecast_vals=result["forecast"],
-        quantile_vals=result["quantiles"],
-        horizon=horizon,
-    )
-
-    table_df = pd.DataFrame({
-        "step": list(range(1, horizon + 1)),
-        "forecast": result["forecast"],
-        "p10": result["quantiles"][0],
-        "p25": result["quantiles"][1],
-        "p50": result["quantiles"][2],
-        "p75": result["quantiles"][3],
-        "p90": result["quantiles"][4],
-    })
+    try:
+        result = forecast_from_series(series, horizon=horizon, freq=freq_id)
+        context = series[-result["context_length"]:]
+        fig = build_plot(
+            context_vals=context,
+            forecast_vals=result["forecast"],
+            quantile_vals=result["quantiles"],
+            horizon=horizon,
+        )
+        table_df = pd.DataFrame({
+            "step": list(range(1, horizon + 1)),
+            "forecast": result["forecast"],
+            "p10": result["quantiles"][0],
+            "p25": result["quantiles"][1],
+            "p50": result["quantiles"][2],
+            "p75": result["quantiles"][3],
+            "p90": result["quantiles"][4],
+        })
+    except Exception as e:
+        import traceback
+        return None, f"Forecast failed: {type(e).__name__}: {e}\n```\n{traceback.format_exc()[-1500:]}\n```", None
 
     summary = (
         f"**Model:** {MODEL_REPO} (v0.5)  \n"
