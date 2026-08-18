@@ -1,6 +1,19 @@
-"""Generate benchmark comparison bar charts for NanoForecast v0.5."""
-import matplotlib.pyplot as plt
+"""Generate benchmark charts for NanoForecast v0.5.
+
+Every number in these charts is a standard-protocol measurement
+(H=48, C=512, non-overlapping test windows, seasonal-naive MASE scale,
+all series; see benchmark_standard.py) produced by us under the identical
+protocol for every model. No published-leaderboard numbers are mixed in.
+
+Usage:
+    python3 deploy/generate_benchmark_charts.py
+"""
+import json
+import os
+import sys
+
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 
 matplotlib.rcParams.update({
@@ -12,321 +25,134 @@ matplotlib.rcParams.update({
 })
 
 NF_COLOR = "#FF6B35"    # orange — NanoForecast
-OTHER_COLOR = "#4A90D9" # blue — others
-SOTA_COLOR = "#2ECC71"  # green — SOTA
+V03_COLOR = "#95A5A6"   # gray — v0.3
+TFM_COLOR = "#3498DB"   # blue — TimesFM
+PTST_COLOR = "#9B59B6"  # purple — PatchTST
 BG_COLOR = "#FAFAFA"
 
-# ── ETTh1 MSE-96 (lower is better) ──
-# Sources: CodeSOTA, CodeSOTA guide (2025-2026), Wizwand
-models_etth1 = [
-    "Timer\n(200M+)",
-    "PatchTST\n(15M+)",
-    "Moirai\n(311M)",
-    "TimesFM\n(200M)",
-    "iTransformer\n(15M+)",
-    "Chronos\n(8M-710M)",
-    "DLinear\n(1M+)",
-    "N-BEATS\n(5M+)",
-    "ARIMA",
-    "Prophet",
-    "NanoForecast\n(6.5M)",
-]
-mse_etth1 = [0.368, 0.370, 0.374, 0.381, 0.386, 0.395, 0.400, 0.416, 0.847, 0.916, 0.703]
-colors_etth1 = [SOTA_COLOR if i < 3 else OTHER_COLOR for i in range(len(models_etth1))]
-colors_etth1[-1] = NF_COLOR
+DATASETS = ["ETTh1", "ETTh2", "ETTm1", "Exchange", "Electricity", "Traffic"]
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_etth1, mse_etth1, color=colors_etth1, edgecolor="white", height=0.7)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("ETTh1-96: MSE Comparison with Published Leaderboards", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_etth1):
-    ax.text(bar.get_width() + 0.008, bar.get_y() + bar.get_height()/2,
-            f"{val:.3f}", va="center", fontsize=9, fontweight="bold")
-ax.set_xlim(0, max(mse_etth1) * 1.15)
-ax.axvline(x=0.703, color=NF_COLOR, linestyle="--", alpha=0.4, linewidth=1)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_etth1_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_etth1_mse.png")
+# Standard-protocol MASE (benchmark_standard.py, fixed harness).
+MASE_V05 = [0.685, 1.109, 0.289, 4.418, 2.093, 1.915]
+MASE_V03 = [0.676, 1.357, 0.291, 12.847, 2.418, 2.102]
+MASE_TFM = [0.705, 1.360, 0.545, 4.383, 0.923, 0.765]
+MASE_PTST = [0.781, 1.467, 0.488, 3.861, 1.347, 1.379]
 
-# ── Traffic MSE-96 (lower is better) ──
-models_traffic = [
-    "Timer\n(200M+)",
-    "PatchTST\n(15M+)",
-    "Moirai\n(311M)",
-    "TimesFM\n(200M)",
-    "Chronos\n(8M-710M)",
-    "iTransformer\n(15M+)",
-    "N-BEATS\n(5M+)",
-    "NanoForecast\n(6.5M)",
-]
-mse_traffic = [0.355, 0.360, 0.365, 0.378, 0.389, 0.395, 0.607, 0.0000154]
-colors_traffic = [SOTA_COLOR if i < 1 else OTHER_COLOR for i in range(len(models_traffic))]
-colors_traffic[-1] = NF_COLOR
+PARAMS = {"NanoForecast v0.5": 6.5, "PatchTST": 15, "TimesFM": 200}
+EFFICIENCY = {"NanoForecast v0.5": 0.088, "PatchTST": 0.043, "TimesFM": 0.0035}
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_traffic, mse_traffic, color=colors_traffic, edgecolor="white", height=0.7)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("Traffic-96: MSE Comparison (NanoForecast achieves orders-of-magnitude lower MSE)", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_traffic):
-    label = f"{val:.3f}" if val > 0.01 else f"{val:.2e}"
-    ax.text(bar.get_width() + 0.008, bar.get_y() + bar.get_height()/2,
-            label, va="center", fontsize=9, fontweight="bold")
-ax.set_xlim(0, max(mse_traffic) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_traffic_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_traffic_mse.png")
 
-# ── ETTh2 MSE-96 (lower is better) ──
-# Source: KANMixer paper (arXiv:2603.13576), Linear++ (arXiv:2502.12107)
-models_etth2 = [
-    "SAMformer",
-    "TSMixer",
-    "iTransformer\n(15M+)",
-    "PatchTST\n(15M+)",
-    "Linear++",
-    "DLinear\n(1M+)",
-    "NanoForecast\n(6.5M)",
-]
-mse_etth2 = [0.344, 0.357, 0.383, 0.387, 0.379, 0.431, 0.703]
-colors_etth2 = [SOTA_COLOR if i < 2 else OTHER_COLOR for i in range(len(models_etth2))]
-colors_etth2[-1] = NF_COLOR
+def _style_ax(ax, title, ylabel):
+    fig = ax.figure
+    fig.patch.set_facecolor(BG_COLOR)
+    ax.set_facecolor(BG_COLOR)
+    ax.set_ylabel(ylabel, fontweight="bold")
+    ax.set_title(title, fontsize=14, fontweight="bold", pad=15)
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    ax.set_axisbelow(True)
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_etth2, mse_etth2, color=colors_etth2, edgecolor="white", height=0.7)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("ETTh2-96: MSE Comparison with Published Leaderboards", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_etth2):
-    ax.text(bar.get_width() + 0.008, bar.get_y() + bar.get_height()/2,
-            f"{val:.3f}", va="center", fontsize=9, fontweight="bold")
-ax.set_xlim(0, max(mse_etth2) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_etth2_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_etth2_mse.png")
 
-# ── ETTm1 MSE-96 (lower is better) ──
-models_ettm1 = [
-    "SAMformer",
-    "DLinear\n(1M+)",
-    "TSMixer",
-    "Linear++",
-    "PatchTST\n(15M+)",
-    "iTransformer\n(15M+)",
-    "NanoForecast\n(6.5M)",
-]
-mse_ettm1 = [0.373, 0.357, 0.385, 0.387, 0.387, 0.407, 1.238]
-colors_ettm1 = [SOTA_COLOR if i < 2 else OTHER_COLOR for i in range(len(models_ettm1))]
-colors_ettm1[-1] = NF_COLOR
+def chart_main_mase():
+    """MASE by dataset, the three compared systems (paper Table 1)."""
+    x = np.arange(len(DATASETS))
+    width = 0.26
+    fig, ax = plt.subplots(figsize=(13, 6))
+    _style_ax(ax, "Standard-Protocol MASE by Dataset (lower is better)", "MASE")
+    ax.bar(x - width, MASE_TFM, width, label="TimesFM (200M)", color=TFM_COLOR, edgecolor="white")
+    ax.bar(x, MASE_PTST, width, label="PatchTST (15M+)", color=PTST_COLOR, edgecolor="white")
+    ax.bar(x + width, MASE_V05, width, label="NanoForecast v0.5 (6.5M)", color=NF_COLOR, edgecolor="white")
+    for xi, (a, b, c) in enumerate(zip(MASE_TFM, MASE_PTST, MASE_V05)):
+        for xv, v in ((xi - width, a), (xi, b), (xi + width, c)):
+            ax.text(xv, v + 0.12, f"{v:.2f}", ha="center", fontsize=8, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(DATASETS, fontweight="bold")
+    ax.set_ylim(0, 5.0)
+    ax.legend(fontsize=10, loc="upper left")
+    ax.annotate("NanoForecast wins all three ETT sets",
+                xy=(1, 1.35), xytext=(0.4, 2.0),
+                arrowprops=dict(arrowstyle="->", color=NF_COLOR, lw=1.5),
+                fontsize=9, color=NF_COLOR, fontweight="bold")
+    plt.tight_layout()
+    out = os.path.join(os.path.dirname(__file__), "benchmark_mase_standard.png")
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Saved:", out)
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_ettm1, mse_ettm1, color=colors_ettm1, edgecolor="white", height=0.7)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("ETTm1-96: MSE Comparison with Published Leaderboards", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_ettm1):
-    ax.text(bar.get_width() + 0.008, bar.get_y() + bar.get_height()/2,
-            f"{val:.3f}", va="center", fontsize=9, fontweight="bold")
-ax.set_xlim(0, max(mse_ettm1) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_ettm1_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_ettm1_mse.png")
 
-# ── Exchange Rate MSE-96 (lower is better) ──
-models_exchange = [
-    "DLinear\n(1M+)",
-    "iTransformer\n(15M+)",
-    "PatchTST\n(15M+)",
-    "Linear++",
-    "SAMformer",
-    "TSMixer",
-    "NanoForecast\n(6.5M)",
-]
-mse_exchange = [0.296, 0.360, 0.366, 0.385, 0.445, 0.593, 4.855]
-colors_exchange = [SOTA_COLOR if i < 1 else OTHER_COLOR for i in range(len(models_exchange))]
-colors_exchange[-1] = NF_COLOR
+def chart_v03_vs_v05():
+    """Pipeline-refinement ablation: released v0.3 vs v0.5 checkpoints."""
+    x = np.arange(len(DATASETS))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(13, 6))
+    _style_ax(ax, "Training-Pipeline Refinement: v0.3 vs v0.5 (same architecture)",
+              "MASE (lower is better)")
+    ax.bar(x - width / 2, MASE_V03, width, label="v0.3 (original pipeline)",
+           color=V03_COLOR, edgecolor="white")
+    ax.bar(x + width / 2, MASE_V05, width, label="v0.5 (three pipeline fixes)",
+           color=NF_COLOR, edgecolor="white")
+    for xi, (a, b) in enumerate(zip(MASE_V03, MASE_V05)):
+        ax.text(xi - width / 2, a + 0.12, f"{a:.2f}", ha="center", fontsize=8, fontweight="bold")
+        ax.text(xi + width / 2, b + 0.12, f"{b:.2f}", ha="center", fontsize=8, fontweight="bold")
+        if b < a:
+            ax.annotate("", xy=(xi + width / 2, b), xytext=(xi - width / 2, a),
+                        arrowprops=dict(arrowstyle="-|>", color="#2ECC71", lw=1.5))
+    ax.set_xticks(x)
+    ax.set_xticklabels(DATASETS, fontweight="bold")
+    ax.set_ylim(0, 14.0)
+    ax.legend(fontsize=10, loc="upper left")
+    ax.text(0.02, 0.92, "Overall MASE 3.282 → 1.752  (−46.6%)",
+            transform=ax.transAxes, fontsize=11, fontweight="bold", color="#2ECC71")
+    plt.tight_layout()
+    out = os.path.join(os.path.dirname(__file__), "benchmark_v03_vs_v05.png")
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Saved:", out)
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_exchange, mse_exchange, color=colors_exchange, edgecolor="white", height=0.7)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("Exchange Rate-96: MSE Comparison (NanoForecast needs improvement)", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_exchange):
-    ax.text(bar.get_width() + 0.05, bar.get_y() + bar.get_height()/2,
-            f"{val:.3f}", va="center", fontsize=9, fontweight="bold")
-ax.set_xlim(0, max(mse_exchange) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_exchange_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_exchange_mse.png")
 
-# ── Electricity MSE-96 (lower is better) ──
-# Source: Chronos paper (arXiv:2403.07815)
-models_electricity = [
-    "PatchTST\n(15M+)",
-    "Chronos-T5\nLarge (710M)",
-    "NanoForecast\n(6.5M)",
-]
-mse_electricity = [0.000198, 0.000228, 0.0000154]
-colors_electricity = [OTHER_COLOR, OTHER_COLOR, NF_COLOR]
+def chart_params():
+    """Parameter count (log scale)."""
+    names = list(PARAMS.keys())
+    vals = list(PARAMS.values())
+    colors = [NF_COLOR, PTST_COLOR, TFM_COLOR]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    _style_ax(ax, "Parameter Count (log scale)", "Parameters (millions)")
+    bars = ax.bar(names, vals, color=colors, edgecolor="white", width=0.55, log=True)
+    for bar, v in zip(bars, vals):
+        ax.text(bar.get_x() + bar.get_width() / 2, v * 1.15, f"{v}M",
+                ha="center", fontsize=11, fontweight="bold")
+    ax.set_ylim(1, 1000)
+    plt.tight_layout()
+    out = os.path.join(os.path.dirname(__file__), "benchmark_params.png")
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Saved:", out)
 
-fig, ax = plt.subplots(figsize=(10, 5))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars = ax.barh(models_electricity, mse_electricity, color=colors_electricity, edgecolor="white", height=0.6)
-ax.set_xlabel("MSE (lower is better)", fontweight="bold")
-ax.set_title("Electricity-96: MSE Comparison (NanoForecast beats PatchTST & Chronos!)", fontsize=14, fontweight="bold", pad=15)
-ax.invert_yaxis()
-for bar, val in zip(bars, mse_electricity):
-    label = f"{val:.2e}"
-    ax.text(bar.get_width() + 0.000005, bar.get_y() + bar.get_height()/2,
-            label, va="center", fontsize=10, fontweight="bold")
-ax.set_xlim(0, max(mse_electricity) * 1.3)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_electricity_mse.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_electricity_mse.png")
 
-# ── MASE by Dataset: NanoForecast vs Published Best ──
-# Note: MSE not comparable across models due to different normalization
-# MASE is the fair metric (normalized by in-sample MAE of naive method)
-datasets_mase = ["ETTh1", "ETTh2", "ETTm1", "Exchange\nRate", "Electricity", "Traffic"]
-# NanoForecast v0.5 MASE
-nf_mase = [0.913, 0.914, 1.305, 3.578, 0.709, 0.535]
-# Published best MASE (from papers)
-best_mase = [0.368, 0.344, 0.357, 0.296, 1.349, 0.535]  # Timer/SAMformer/DLinear/PatchTST
-best_names = ["Timer", "SAMformer", "DLinear", "DLinear", "PatchTST", "NanoForecast"]
+def chart_efficiency():
+    """Efficiency ratio E = MASE^-1 / params (higher is better)."""
+    names = list(EFFICIENCY.keys())
+    vals = list(EFFICIENCY.values())
+    colors = [NF_COLOR, PTST_COLOR, TFM_COLOR]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    _style_ax(ax, "Parameter Efficiency  E = MASE$^{-1}$ / params (higher is better)",
+              "Efficiency ratio")
+    bars = ax.bar(names, vals, color=colors, edgecolor="white", width=0.55)
+    for bar, v in zip(bars, vals):
+        ax.text(bar.get_x() + bar.get_width() / 2, v + 0.001,
+                f"{v:.3f}", ha="center", fontsize=11, fontweight="bold")
+    ax.set_ylim(0, 0.10)
+    ax.text(0.02, 0.85, "25× more parameter-efficient than TimesFM, 2× vs PatchTST",
+            transform=ax.transAxes, fontsize=10, fontweight="bold", color="#2ECC71")
+    plt.tight_layout()
+    out = os.path.join(os.path.dirname(__file__), "benchmark_efficiency.png")
+    plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
+    print("Saved:", out)
 
-x = np.arange(len(datasets_mase))
-width = 0.35
 
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars1 = ax.bar(x - width/2, best_mase, width, label="Published Best", color="#4A90D9", edgecolor="white")
-bars2 = ax.bar(x + width/2, nf_mase, width, label="NanoForecast v0.5", color=NF_COLOR, edgecolor="white")
-
-ax.set_ylabel("MASE (lower is better)", fontweight="bold")
-ax.set_title("NanoForecast v0.5 MASE vs Published Best by Dataset", fontsize=14, fontweight="bold", pad=15)
-ax.set_xticks(x)
-ax.set_xticklabels(datasets_mase, fontweight="bold")
-ax.legend(fontsize=10, loc="upper left")
-ax.axhline(y=1.0, color="#E74C3C", linestyle="--", alpha=0.5, linewidth=1, label="MASE = 1.0 (naive baseline)")
-
-for bars in [bars1, bars2]:
-    for bar in bars:
-        h = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2, h + 0.05, f"{h:.2f}",
-                ha="center", va="bottom", fontsize=9, fontweight="bold")
-
-# Add "beats" annotation for electricity and traffic
-ax.annotate("Beats PatchTST!", xy=(4 + width/2, 0.709), xytext=(4.5, 1.6),
-            arrowprops=dict(arrowstyle="->", color="#2ECC71", lw=2),
-            fontsize=10, fontweight="bold", color="#2ECC71")
-ax.annotate("Best-in-class!", xy=(5 + width/2, 0.535), xytext=(5.3, 1.2),
-            arrowprops=dict(arrowstyle="->", color="#2ECC71", lw=2),
-            fontsize=10, fontweight="bold", color="#2ECC71")
-
-ax.set_ylim(0, max(max(best_mase), max(nf_mase)) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_mase_comparison.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_mase_comparison.png")
-
-# ── NanoForecast v0.5 MASE by dataset (lower is better) ──
-datasets = ["ETTh1", "ETTh2", "ETTm1", "exchange_rate", "electricity", "traffic"]
-mase_v05 = [0.913, 0.914, 1.305, 3.578, 0.709, 0.535]
-mase_v03 = [1.95, 2.74, 2.17, 7.44, 1.29, 0.81]
-mase_v02 = [3.34, 3.71, 3.58, 7.31, 1.54, 1.25]
-
-x = np.arange(len(datasets))
-width = 0.25
-
-fig, ax = plt.subplots(figsize=(14, 6))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-bars1 = ax.bar(x - width, mase_v02, width, label="v0.2 (1.6M)", color="#95A5A6", edgecolor="white")
-bars2 = ax.bar(x, mase_v03, width, label="v0.3 (6.5M)", color="#3498DB", edgecolor="white")
-bars3 = ax.bar(x + width, mase_v05, width, label="v0.5 (6.5M)", color=NF_COLOR, edgecolor="white")
-
-ax.set_ylabel("MASE (lower is better)", fontweight="bold")
-ax.set_title("NanoForecast Version Comparison: MASE by Dataset", fontsize=14, fontweight="bold", pad=15)
-ax.set_xticks(x)
-ax.set_xticklabels(datasets, fontweight="bold")
-ax.legend(fontsize=10, loc="upper left")
-ax.axhline(y=1.0, color="#E74C3C", linestyle="--", alpha=0.5, linewidth=1, label="MASE = 1.0 (naive baseline)")
-
-for bars in [bars1, bars2, bars3]:
-    for bar in bars:
-        h = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2, h + 0.08, f"{h:.2f}",
-                ha="center", va="bottom", fontsize=8, fontweight="bold")
-
-ax.set_ylim(0, max(mase_v02) * 1.15)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_version_comparison.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_version_comparison.png")
-
-# ── Deployment comparison radar chart ──
-categories = ["CPU\nInference", "Streaming", "ONNX\nExport", "Raspberry\nPi", "Train\nfrom CSV", "Quantiles", "Zero-shot"]
-# Score 1-5 for each model
-scores = {
-    "NanoForecast": [5, 5, 5, 5, 5, 5, 4],
-    "TimesFM":     [1, 1, 1, 1, 1, 1, 5],
-    "Chronos":     [2, 1, 1, 1, 2, 5, 5],
-    "PatchTST":    [1, 1, 1, 1, 3, 1, 1],
-    "Lag-Llama":   [1, 1, 1, 1, 2, 4, 4],
-}
-
-angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
-angles += angles[:1]
-
-fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
-fig.patch.set_facecolor(BG_COLOR)
-ax.set_facecolor(BG_COLOR)
-
-model_colors = {
-    "NanoForecast": NF_COLOR,
-    "TimesFM": "#3498DB",
-    "Chronos": "#2ECC71",
-    "PatchTST": "#9B59B6",
-    "Lag-Llama": "#E74C3C",
-}
-
-for model, vals in scores.items():
-    values = vals + vals[:1]
-    lw = 3 if model == "NanoForecast" else 1.5
-    alpha = 1.0 if model == "NanoForecast" else 0.6
-    ax.plot(angles, values, linewidth=lw, label=model, color=model_colors[model], alpha=alpha)
-    if model == "NanoForecast":
-        ax.fill(angles, values, alpha=0.15, color=NF_COLOR)
-
-ax.set_xticks(angles[:-1])
-ax.set_xticklabels(categories, fontsize=10, fontweight="bold")
-ax.set_ylim(0, 5.5)
-ax.set_yticks([1, 2, 3, 4, 5])
-ax.set_yticklabels(["1", "2", "3", "4", "5"], fontsize=8)
-ax.set_title("Deployment Capability Comparison\n(higher = better)", fontsize=14, fontweight="bold", pad=30)
-ax.legend(loc="upper right", bbox_to_anchor=(1.35, 1.1), fontsize=9)
-plt.tight_layout()
-plt.savefig("deploy/benchmark_radar.png", dpi=150, bbox_inches="tight")
-plt.close()
-print("Saved: deploy/benchmark_radar.png")
-
-print("\nAll charts generated!")
+if __name__ == "__main__":
+    chart_main_mase()
+    chart_v03_vs_v05()
+    chart_params()
+    chart_efficiency()
+    print("\nAll charts generated.")

@@ -2,21 +2,23 @@
 
 **Author**: Gautam Kishore, Eulogik  
 **Contact**: gautam@eulogik.com  
-**Date**: July 2026
+**Date**: August 2026
 
 ---
 
 ## The Core Story
 
-> An 8.3 million parameter AI model — trained on a single T4-class GPU (Google Colab) — outperforms Google's 200 million parameter model on 2 of 6 standard forecasting benchmarks. And it runs on a $35 Raspberry Pi.
+> A 6.5 million parameter AI model — trained on a free Colab T4 (~12 hours) — outperforms Google's 200 million parameter TimesFM on all three ETT forecasting benchmarks (ETTh1, ETTh2, ETTm1). And it runs on a $35 Raspberry Pi.
 
 **Three provable claims that make this interesting:**
 
 | Claim | Evidence |
 |-------|----------|
-| 24× smaller than Google's TimesFM | 8.3M params vs 200M params |
-| Outperforms TimesFM on 2 benchmarks | Electricity MASE 0.709 vs 0.89, Traffic MASE 0.535 vs 0.62 |
-| Trains on consumer hardware for ~$0.12 | 12 hours on Colab T4 at ~$0.01/hr |
+| 31× smaller than Google's TimesFM | 6.5M params vs 200M params |
+| Beats TimesFM on all three ETT benchmarks | Standard protocol: ETTh1 0.685 vs 0.705, ETTh2 1.109 vs 1.360, ETTm1 0.289 vs 0.545 |
+| Beats its own predecessor by 46.6% with zero architecture changes | v0.3 → v0.5: MASE 3.282 → 1.752 (standard protocol, same 6.5M params) |
+
+All numbers are measured under one identical standard protocol (context 512, horizon 48, non-overlapping test windows, all channels, MASE scaled by seasonal-naive in-sample MAE) with every model evaluated by us. Full protocol: `benchmark_standard.py`.
 
 ---
 
@@ -24,36 +26,39 @@
 
 ---
 
-### 1. THE EFFICIENCY ANGLE: "24× smaller model outperforms Google on 2 benchmarks"
+### 1. THE EFFICIENCY ANGLE: "31× smaller model beats Google on all three ETT benchmarks"
 
 **Audience**: Hacker News, tech press, engineers  
-**Headline**: "Show HN: 8.3M param model trained for $0.12 outperforms Google's TimesFM (200M) on 2 benchmarks"
+**Headline**: "Show HN: 6.5M param model beats Google's TimesFM (200M) on all three ETT forecasting benchmarks"
 
-**The story**: Most AI progress is measured by scale — bigger models, more data, more compute. This project challenges that. An 8.3M parameter model, trained on a single T4-class GPU (Google Colab) for twelve dollars of compute, achieves better results than a 200M parameter Google model on electricity and traffic forecasting. Not across the board — on 2 of 6 benchmarks. But that's the point: scale isn't the only path to performance.
+**The story**: Most AI progress is measured by scale — bigger models, more data, more compute. This project challenges that. A 6.5M parameter model, trained on a free Colab T4 in ~12 hours, beats a 200M parameter Google model on all three ETT datasets. Not across the board — TimesFM wins exchange_rate, electricity, and traffic. But on the ETT benchmarks, scale wasn't the deciding factor.
 
 **Precise claims**:
-- Size: 8.3M params vs TimesFM's 200M (24× smaller)
-- Training cost: ~$0.12 vs TimesFM's undisclosed but certainly thousands+
-- Results: Outperforms on electricity (0.709 vs 0.89 MASE) and traffic (0.535 vs 0.62 MASE)
-- TimesFM wins on remaining 4 benchmarks (ETTh1, ETTh2, ETTm1, exchange_rate)
+- Size: 6.5M params vs TimesFM's 200M (31× smaller)
+- Training cost: one free Colab T4 session, ~12 hours (checkpoint wall time 43,750s)
+- Results (standard protocol): ETTh1 0.685 vs 0.705, ETTh2 1.109 vs 1.360, ETTm1 0.289 vs 0.545
+- TimesFM wins on the remaining 3 benchmarks (exchange_rate, electricity, traffic) — be specific, don't overclaim
 
 **Post template**:
 ```
-We trained a time series forecasting model (8.3M params) on a single T4-class GPU for ~12 hours (Google Colab).
+We trained a time series forecasting model (6.5M params) on a free Colab T4 GPU for ~12 hours.
 
-It outperforms Google's TimesFM (200M params) on 2 of 6 standard benchmarks:
-• Electricity: MASE 0.709 vs TimesFM 0.89
-• Traffic: MASE 0.535 vs TimesFM 0.62
+It beats Google's TimesFM (200M params) on all three ETT benchmarks:
+• ETTh1: MASE 0.685 vs TimesFM 0.705
+• ETTh2: MASE 1.109 vs TimesFM 1.360
+• ETTm1: MASE 0.289 vs TimesFM 0.545
 
-On the remaining 4 benchmarks it's competitive within 2-3×, despite being 24× smaller.
+(Standard protocol: H=48, C=512, non-overlapping windows, all channels, seasonal-naive MASE — identical for both models.)
+
+TimesFM still wins on exchange_rate, electricity, and traffic. We're not claiming a blanket victory — we're claiming scale isn't the only path.
 
 The model also:
 • Trains in ~12 hours on a single T4-class GPU (Google Colab)
-• Runs on a $35 Raspberry Pi at 45ms inference
-• Exports to 8.3 MB ONNX INT8
-• Updates forecasts in <1ms (streaming mode)
+• Runs on a $35 Raspberry Pi
+• Exports to ~6.5 MB ONNX INT8
+• Streams forecasts one observation at a time (DeltaNet RNN state)
 
-The surprising part: we improved accuracy 51% by fixing 3 training bugs. Same architecture.
+And the surprising part: v0.5 improved MASE 3.282 → 1.752 (−46.6%) over v0.3 with zero architecture changes — purely from training-pipeline fixes.
 
 Live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 GitHub: https://github.com/eulogik/NanoForecast
@@ -62,120 +67,121 @@ Paper: https://arxiv.org/abs/XXXX.XXXXX
 
 ---
 
-### 2. THE DEPLOYMENT ANGLE: "Trains on a single T4-class GPU, runs on a Pi"
+### 2. THE DEPLOYMENT ANGLE: "Trains on a free Colab T4, runs on a Pi"
 
 **Audience**: Product Hunt, developers, IoT engineers  
-**Headline**: "NanoForecast: Train on a T4-class GPU in 12 hours, deploy to Raspberry Pi in 5 minutes"
+**Headline**: "NanoForecast: Train on a Colab T4 in 12 hours, deploy to Raspberry Pi in minutes"
 
-**The story**: Most time series models are research artifacts — they never ship. This one is designed to deploy. pip install, train on your CSV, export to ONNX, run on a $35 Raspberry Pi. Full pipeline: 60 seconds from install to inference.
+**The story**: Most time series models are research artifacts — they never ship. This one is designed to deploy. pip install, train on your CSV, export to ONNX, run on a $35 Raspberry Pi. Full pipeline: minutes from install to inference.
 
 **Precise claims**:
 - `pip install nanoforecast` — standard Python package
 - `train_from_csv.py --csv your_data.csv --target sales` — train on custom data
-- ONNX export: 16.6 MB FP16 (8.3 MB INT8)
-- Raspberry Pi 4 inference: 45ms (12ms with ONNX INT8)
-- Streaming: <1ms per observation
+- ONNX export: ~13 MB FP16 (~6.5 MB INT8)
+- Raspberry Pi: designed for CPU/ARM inference (no GPU needed)
+- Streaming: O(1) update per new observation (DeltaNet RNN state)
 - Docker: ARM/x86 multi-arch images
 
 **Post template** (Product Hunt first comment):
 ```
 Hi! I'm Gautam, creator of NanoForecast.
 
-Most AI models never make it past a Jupyter notebook. This one trains on a single T4-class GPU, exports to 8.3 MB INT8, and runs on a $35 Raspberry Pi.
+Most AI models never make it past a Jupyter notebook. This one trains on a free Colab T4, exports to ~6.5 MB ONNX INT8, and runs on a $35 Raspberry Pi.
 
 pip install → train on your CSV → export to ONNX → deploy.
 
-The model is competitive with models 24× its size because we focused on training pipeline quality rather than parameter count. It outperforms Google's TimesFM on electricity and traffic forecasting.
+The model is 31× smaller than Google's TimesFM (6.5M vs 200M params) and beats it on all three ETT benchmarks under an identical standard protocol.
 
 Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 ```
 
 ---
 
-### 3. THE RESEARCH ANGLE: "51% improvement from pipeline fixes, not architecture"
+### 3. THE RESEARCH ANGLE: "46.6% improvement from pipeline fixes, not architecture"
 
 **Audience**: ML researchers, arXiv, Papers With Code  
-**Headline**: "[R] Training pipeline optimization yields 51% MASE improvement — same architecture, same params"
+**Headline**: "[R] Training pipeline fixes yield 46.6% MASE improvement — same architecture, same params"
 
-**The story**: Three silent bugs in the training pipeline were degrading model accuracy by 51%: loss scope computed on wrong dimensions, shape mismatches in quantile loss, and suboptimal data mixing ratios. Each fix contributed measurable improvement. The broader implication: many published results may reflect suboptimal training configurations rather than fundamental architectural limitations.
+**The story**: Three training-pipeline fixes — loss-scope handling, tensor shape alignment, and augmentation coverage — improved MASE from 3.282 to 1.752 (−46.6%) with zero architecture changes on the identical 6.5M-parameter model. The broader implication: training configuration quality can matter as much as architecture.
 
 **Precise claims**:
-- Ablation: Bug 1 → 21% improvement, Bug 2 → 35%, Bug 3 → 51%
-- All three are silent — models still train and converge
-- Likely present in many training pipelines
+- Released v0.3 and v0.5 checkpoints: identical architecture (6,518,104 params), identical corpus and hyperparameters
+- Overall standard-protocol MASE: 3.282 → 1.752 (−46.6%)
+- Per-dataset improvements: ETTh2 −18.3%, exchange −65.6%, electricity −13.4%, traffic −8.9% (ETTh1 +1.3%, ETTm1 −0.7%)
+- All three fixes are silent — the model still trains, converges, and looks reasonable either way
 
-**Ablation table**:
-| Configuration | MASE | Improvement |
-|:---|---:|---:|
-| v0.3 baseline | 2.73 | — |
-| + Loss scope fix | 2.15 | 21.2% |
-| + Shape alignment fix | 1.78 | 34.8% |
-| + Data mixing fix | 1.326 | 51.4% |
+**Ablation table** (per-dataset, standard protocol):
+| Dataset | v0.3 | v0.5 | Δ |
+|:---|---:|---:|---:|
+| ETTh1 | 0.676 | 0.685 | +1.3% |
+| ETTh2 | 1.357 | 1.109 | −18.3% |
+| ETTm1 | 0.291 | 0.289 | −0.7% |
+| exchange_rate | 12.847 | 4.418 | −65.6% |
+| electricity | 2.418 | 2.093 | −13.4% |
+| traffic | 2.102 | 1.915 | −8.9% |
+| **Overall** | **3.282** | **1.752** | **−46.6%** |
 
 **Paper**: https://arxiv.org/abs/XXXX.XXXXX
 
 ---
 
-### 4. THE COST ANGLE: "$0.12 training cost vs industry standard of thousands"
+### 4. THE COST ANGLE: "Free-to-train model vs industry standard of thousands"
 
-**Audience**: Business press, startup founders, Forbes/Business Insider  
-**Headline**: "This AI model was trained for $0.12 and outperforms models that cost millions"
+**Audience**: Business press, startup founders  
+**Headline**: "This AI forecasting model was trained on a free Colab T4 and beats a Google model 31× its size on three benchmarks"
 
-**The story**: The narrative around AI is increasingly about scale: billions of dollars in compute, massive data centers, frontier models that cost $100M+ to train. NanoForecast v0.5 tells a different story. Trained on a single T4-class GPU (Google Colab) for approximately 12 hours. The model achieves results competitive with — and in two cases superior to — Google's TimesFM, a 200M parameter model that required orders of magnitude more investment. This suggests that training pipeline quality can partially substitute for raw scale.
+**The story**: The narrative around AI is increasingly about scale: billions of dollars in compute, massive data centers, frontier models that cost $100M+ to train. NanoForecast v0.5 tells a different story. Trained on a single free-tier T4-class GPU (Google Colab) for approximately 12 hours. The model achieves better results than Google's TimesFM — a 200M parameter model — on all three ETT benchmarks, with 31× fewer parameters. This suggests that training pipeline quality can partially substitute for raw scale.
 
 **Precise claims**:
-- Training compute: 12 hours × $0.01/hr (Colab T4) = $0.12
-- Google Colab is not free for everyone — we used a free-tier eligible service
+- Training compute: ~12 hours on a free Colab T4 (checkpoint wall time 43,750s)
 - Training time: 12 hours (not including data prep, debugging)
 - Inference hardware: $35 Raspberry Pi 4
 - Comparison: TimesFM training cost is undisclosed but estimated at $10K-$100K+
 
 ---
 
-### 5. THE OPEN SOURCE ANGLE: "Apache 2.0 model outperforms proprietary Google model on 2 benchmarks"
+### 5. THE OPEN SOURCE ANGLE: "Apache 2.0 model beats a proprietary Google model on 3 benchmarks"
 
 **Audience**: FOSS advocates, Linux Foundation, open source press  
-**Headline**: "Open source model outperforms Google's proprietary model on 2 benchmarks — and it's 24× smaller"
+**Headline**: "Open source model outperforms Google's model on 3 benchmarks — and it's 31× smaller"
 
-**The story**: Google's TimesFM is available only as an API or through limited research access — weights are not released. NanoForecast is fully open source under Apache 2.0. The code, pretrained checkpoints, training pipeline, evaluation framework, and deployment tools are all public. On 2 of 6 benchmarks, the open source model achieves better results than the proprietary one. This is a concrete demonstration of open source AI's ability to compete with well-funded proprietary efforts.
+**The story**: Google's TimesFM weights are not released. NanoForecast is fully open source under Apache 2.0 — code, pretrained checkpoints, training pipeline, evaluation framework, and deployment tools are all public. On all three ETT benchmarks, the open source model achieves better results than the proprietary one under an identical evaluation protocol. This is a concrete demonstration of open source AI's ability to compete with well-funded proprietary efforts.
 
 **Precise claims**:
 - License: Apache 2.0 (free forever, commercial use OK)
 - Full source code on GitHub
-- Pretrained checkpoints on HuggingFace
+- Pretrained checkpoints on HuggingFace (v0.1, v0.2, v0.3, v0.5)
 - Reproducible with one command
-- Outperforms TimesFM on electricity and traffic
+- Beats TimesFM on ETTh1, ETTh2, ETTm1 (standard protocol)
 
 ---
 
-### 6. THE "SILENT BUGS" ANGLE: "3 silent bugs that are probably in your training pipeline too"
+### 6. THE "SILENT PIPELINE FIXES" ANGLE: "3 silent training issues that might be in your pipeline too"
 
 **Audience**: ML engineers, data scientists, software engineers  
-**Headline**: "We found 3 silent bugs that were destroying our model's accuracy by 51%"
+**Headline**: "We found 3 silent training-pipeline issues that were costing our model 46.6%"
 
-**The story**: Every ML engineer fears silent bugs — problems that don't crash, don't warn, but silently degrade results. We found three of them in our own training pipeline. The loss function was computing gradients on the wrong tensor dimensions. The quantile loss had shape mismatches. The data mix was dominated by synthetic patterns. All three still produced models that trained, converged, and looked reasonable. They were just 51% worse than they should have been.
+**The story**: Every ML engineer fears silent problems — issues that don't crash, don't warn, but silently degrade results. We found three of them in our own training pipeline. The loss scope was computed on the wrong tensor region. The quantile-loss path compared tensors of mismatched shapes. Augmentation coverage was uneven across real and synthetic records. All three still produced models that trained, converged, and looked reasonable. They were just 46.6% worse than they should have been (3.282 → 1.752 overall MASE).
 
-**The three bugs**:
-1. **Loss scope mismatch**: Pipeline always returned multi-horizon key, even when disabled. Loss computed over full context instead of forecast horizon. (21% improvement fix)
-2. **Tensor shape misalignment**: Quantile loss compared tensors before truncation. Gradients flowed through wrong dimensions. (35% cumulative improvement fix)
-3. **Data mixing imbalance**: 1:1 real-to-synthetic ratio drowned out complex real patterns. (51% cumulative improvement fix)
+**The three fixes**:
+1. **Loss-scope handling**: v0.5's dev cycle fixed how the multi-task loss weights horizon, point, and quantile terms (including a stray `"horizon"` key that always activated the multi-horizon loss path even when disabled).
+2. **Tensor shape alignment**: quantile-loss and reconstruction paths were aligned to the correct tensor shapes.
+3. **Augmentation coverage**: broader augmentation (jitter, scaling, shifts, masking, reversal) applied uniformly to real and synthetic records.
 
 ---
 
-### 7. THE EDGE/IoT ANGLE: "$35 Raspberry Pi runs competitive forecasting model at 45ms"
+### 7. THE EDGE/IoT ANGLE: "$35 Raspberry Pi runs a benchmark-winning forecasting model"
 
 **Audience**: IoT developers, edge computing press, embedded systems community  
-**Headline**: "Competitive time series forecasting on a $35 computer — no cloud, no GPU"
+**Headline**: "Forecasting on a $35 computer — no cloud, no GPU"
 
-**The story**: Edge AI typically means "a compressed version of a big model." NanoForecast is designed for edge from the ground up. 8.3M parameters, 8.3 MB ONNX INT8, 45ms inference on a Raspberry Pi 4. No cloud dependency. No GPU required. Streaming mode updates forecasts in <1ms per new observation. The model that outperforms Google's on 2 benchmarks runs entirely on a device that costs less than a dinner out.
+**The story**: Edge AI typically means "a compressed version of a big model." NanoForecast is designed for edge from the ground up. 6.5M parameters, ~6.5 MB ONNX INT8, CPU/ARM inference. No cloud dependency. No GPU required. Streaming mode updates forecasts per observation via the DeltaNet RNN's recurrent state. The model that beats Google's TimesFM on all three ETT benchmarks runs entirely on a device that costs less than a dinner out.
 
 **Precise claims**:
 - Hardware: Raspberry Pi 4 ($35)
-- Inference: 45ms per forward pass
-- Quantized: 12ms with ONNX INT8
-- Streaming: <1ms per observation
-- Model size: 16.6 MB FP16 (8.3 MB INT8)
-- Power: ~5W total system power
+- Model size: ~13 MB FP16 (~6.5 MB INT8 ONNX)
+- Power: designed for ~5W-class devices
+- Streaming: O(1) update per new observation — no history reprocessing
 
 ---
 
@@ -184,46 +190,44 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 **Audience**: Development organizations, NGOs, social impact press  
 **Headline**: "A forecasting model that runs on $35 hardware — bringing AI prediction to communities without cloud access"
 
-**The story**: Most AI forecasting tools require cloud infrastructure, reliable internet, and expensive hardware. NanoForecast requires none of these. It trains on a $500 laptop and runs on a $35 Raspberry Pi. For agricultural planning, weather prediction, energy management, and supply chain optimization in communities without cloud access — this is forecasting that actually works in the field.
+**The story**: Most AI forecasting tools require cloud infrastructure, reliable internet, and expensive hardware. NanoForecast requires none of these. It trains on a $500 laptop or a free Colab T4 and runs on a $35 Raspberry Pi. For agricultural planning, weather prediction, energy management, and supply chain optimization in communities without cloud access — this is forecasting that actually works in the field.
 
 **Precise claims**:
-- Training hardware: any laptop with 8GB+ RAM
+- Training hardware: any laptop with 8GB+ RAM, or free Colab T4
 - Inference hardware: Raspberry Pi 4 ($35)
 - No internet required after download
 - Apache 2.0 license: free forever
-- 8.3 MB model: works on slow connections
+- ~6.5 MB ONNX model: works on slow connections
 
 ---
 
 ### 9. THE STREAMING ANGLE: "The only forecasting model that remembers what it's seen"
 
 **Audience**: Real-time analytics, financial data, sensor networks  
-**Headline**: "Streaming time series inference in <1ms — without reprocessing history"
+**Headline**: "Streaming time series inference — without reprocessing history"
 
-**The story**: Every other time series model reprocesses the entire history every time you ask for a forecast. NanoForecast's DeltaNet maintains state across calls. Feed it one value, get an updated forecast in less than a millisecond. This enables real-time dashboards that update as data arrives, IoT sensor monitoring without history buffering, and financial forecasting at tick-level speed.
+**The story**: Every other time series model reprocesses the entire history every time you ask for a forecast. NanoForecast's DeltaNet maintains state across calls. Feed it one value, get an updated forecast immediately. This enables real-time dashboards that update as data arrives, IoT sensor monitoring without history buffering, and financial forecasting at tick-level speed.
 
 **Precise claims**:
-- DeltaNet RNN: $O(1)$ update per new observation
+- DeltaNet RNN: O(1) update per new observation
 - No full-context reprocessing needed
 - State serialization supported for long-running sessions
-- 1000× speedup vs batch inference for real-time apps
 
 ---
 
 ### 10. THE DEMOCRATIZATION ANGLE: "AI forecasting without venture capital"
 
 **Audience**: Indie hackers, bootstrapped startups, solo founders  
-**Headline**: "Competitive AI forecasting for $0.12 — no GPU cluster, no VC funding, no PhD required"
+**Headline**: "Competitive AI forecasting — no GPU cluster, no VC funding, no PhD required"
 
-**The story**: The narrative around "AI moats" says you need massive compute budgets and elite research teams. NanoForecast was built by a solo developer. Training cost: one ~12-hour T4-class GPU session (Google Colab). The model beats Google's on 2 benchmarks. Deployment is a pip install. This is AI forecasting for people who can't spend millions — and it turns out you don't need to.
+**The story**: The narrative around "AI moats" says you need massive compute budgets and elite research teams. NanoForecast was built by a solo developer. Training: one ~12-hour free Colab T4 session. The model beats Google's TimesFM on all three ETT benchmarks at 31× fewer parameters. Deployment is a pip install. This is AI forecasting for people who can't spend millions — and it turns out you don't need to.
 
 **Precise claims**:
 - Team size: 1 developer
-- Training cost: ~$0.12
-- Training time: 12 hours
-- Model size: 8.3M params
+- Training time: ~12 hours (free Colab T4)
+- Model size: 6.5M params
 - License: Apache 2.0
-- Outperforms Google's TimesFM on 2 benchmarks
+- Beats Google's TimesFM on ETTh1, ETTh2, ETTm1 (standard protocol)
 
 ---
 
@@ -233,25 +237,26 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 
 ### Hacker News (Show HN)
 
-**Title**: Show HN: 8.3M param model trained for $0.12 outperforms Google's TimesFM (200M) on 2 benchmarks
+**Title**: Show HN: 6.5M param model trained on a free Colab T4 beats Google's TimesFM (200M) on all 3 ETT benchmarks
 
 **Body**:
 ```
-We trained a time series forecasting model (8.3M params) on a single T4-class GPU for ~12 hours (Google Colab).
+We trained a time series forecasting model (6.5M params) on a free Colab T4 GPU for ~12 hours.
 
-It outperforms Google's TimesFM (200M params) on 2 of 6 standard benchmarks:
-• Electricity: MASE 0.709 vs TimesFM 0.89
-• Traffic: MASE 0.535 vs TimesFM 0.62
+It beats Google's TimesFM (200M params) on all three ETT benchmarks (identical standard protocol, H=48, C=512, all channels, seasonal-naive MASE):
+• ETTh1: 0.685 vs 0.705
+• ETTh2: 1.109 vs 1.360
+• ETTm1: 0.289 vs 0.545
 
-On the remaining 4 it's competitive within 2-3×, despite being 24× smaller.
+TimesFM still wins exchange_rate, electricity, traffic. Not claiming overall victory — claiming scale isn't the only path.
 
-The surprising part: we improved accuracy 51% by fixing 3 training bugs. Same architecture.
+The surprising part: we improved MASE 3.282 → 1.752 (−46.6%) over v0.3 with zero architecture changes — purely from training-pipeline fixes.
 
 The model:
-• Trains in ~12 hours on a single T4-class GPU (Google Colab)
-• Runs on a $35 Raspberry Pi at 45ms inference
-• Exports to 8.3 MB ONNX INT8
-• Updates forecasts in <1ms (streaming mode)
+• Trains in ~12 hours on a free Colab T4
+• Runs on a $35 Raspberry Pi
+• Exports to ~6.5 MB ONNX INT8
+• Streams forecasts one observation at a time
 
 Live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 GitHub: https://github.com/eulogik/NanoForecast
@@ -262,24 +267,27 @@ Paper: https://arxiv.org/abs/XXXX.XXXXX
 
 ### Reddit r/MachineLearning
 
-**Title**: [R] Training pipeline optimization yields 51% MASE improvement with zero architecture changes
+**Title**: [R] Training pipeline fixes yield 46.6% MASE improvement with zero architecture changes
 
 **Body**:
 ```
-We identified three silent training pipeline bugs that were degrading our model's accuracy by 51%. After fixing them (same architecture, same parameters), MASE improved from 2.73 to 1.326.
+We identified three silent training-pipeline issues that were degrading our model's accuracy. After fixing them (same architecture, same parameters, 6.5M), standard-protocol MASE improved from 3.282 to 1.752.
 
-Three bugs:
-1. Loss scope mismatch — loss computed over full context instead of forecast horizon
-2. Tensor shape misalignment in quantile loss — incorrect gradient flow
-3. Data mixing imbalance — synthetic patterns drowning real-world signals
+Three fixes:
+1. Loss-scope handling — multi-task loss weighting and a stray "horizon" key that always activated the multi-horizon path
+2. Tensor shape alignment in the quantile-loss path
+3. Augmentation coverage — broader augmentation applied uniformly to real and synthetic records
 
-Ablation:
-• Baseline: 2.73
-• + Loss scope: 2.15 (21%)
-• + Shape alignment: 1.78 (35%)
-• + Data mixing: 1.326 (51%)
+Ablation (per-dataset, standard protocol):
+• ETTh1: 0.676 → 0.685 (+1.3%)
+• ETTh2: 1.357 → 1.109 (−18.3%)
+• ETTm1: 0.291 → 0.289 (−0.7%)
+• exchange_rate: 12.847 → 4.418 (−65.6%)
+• electricity: 2.418 → 2.093 (−13.4%)
+• traffic: 2.102 → 1.915 (−8.9%)
+• Overall: 3.282 → 1.752 (−46.6%)
 
-The model also outperforms Google's TimesFM on electricity (0.709 vs 0.89) and traffic (0.535 vs 0.62) despite being 24× smaller.
+The same model also beats Google's TimesFM on all three ETT benchmarks at 31× fewer parameters. TimesFM wins exchange_rate, electricity, traffic.
 
 Paper: https://arxiv.org/abs/XXXX.XXXXX
 Code: https://github.com/eulogik/NanoForecast
@@ -289,22 +297,21 @@ Code: https://github.com/eulogik/NanoForecast
 
 ### Reddit r/LocalLLaMA
 
-**Title**: NanoForecast: 8.3M param model that trains on laptop, runs on Raspberry Pi, outperforms TimesFM on 2 benchmarks
+**Title**: NanoForecast: 6.5M param model that trains on a free Colab T4, runs on Raspberry Pi, beats TimesFM on 3 benchmarks
 
 **Body**:
 ```
 If you've been looking for a time series model that actually deploys:
 
-• 8.3M parameters (8.3 MB ONNX INT8)
-• Trains on a T4-class GPU (Google Colab) in 12 hours ($0.12)
-• Runs on Raspberry Pi 4 at 45ms
-• Streaming: <1ms per observation
+• 6.5M parameters (~6.5 MB ONNX INT8)
+• Trains on a free Colab T4 in ~12 hours
+• Runs on Raspberry Pi 4
+• Streaming: O(1) update per observation
 • pip install nanoforecast
 
-Beats Google's TimesFM (200M params) on electricity and traffic forecasting.
-Beats PatchTST on electricity.
-
-Best-in-class on traffic.
+Beats Google's TimesFM (200M params) on ETTh1, ETTh2, ETTm1 (standard protocol).
+Beats PatchTST on the same three ETT benchmarks.
+TimesFM wins exchange_rate, electricity, traffic.
 
 Demo: https://huggingface.co/spaces/eulogik/nanoforecast
 GitHub: https://github.com/eulogik/NanoForecast
@@ -316,32 +323,32 @@ GitHub: https://github.com/eulogik/NanoForecast
 
 ```
 Tweet 1:
-An 8.3M parameter model — trained on a single T4-class GPU (Google Colab) — outperforms Google's 200M parameter model on 2 benchmarks.
+A 6.5M parameter model — trained on a free Colab T4 — beats Google's 200M parameter TimesFM on all three ETT forecasting benchmarks.
 
-24× smaller. 1,000× cheaper. Still competitive.
-
-Here's how. 🧵
+31× smaller. Still competitive. Here's how. 🧵
 
 Tweet 2:
-NanoForecast v0.5 benchmark results:
-• Electricity: MASE 0.709 vs TimesFM 0.89 (we win)
-• Traffic: MASE 0.535 vs TimesFM 0.62 (we win)
-• ETTh1: MASE 0.913 vs TimesFM 0.52 (competitive)
-• ETTh2: MASE 0.914 vs TimesFM 0.71 (competitive)
+NanoForecast v0.5 benchmark results (identical standard protocol for both models):
+• ETTh1: MASE 0.685 vs TimesFM 0.705 (we win)
+• ETTh2: MASE 1.109 vs TimesFM 1.360 (we win)
+• ETTm1: MASE 0.289 vs TimesFM 0.545 (we win)
+• exchange: 4.418 vs 4.383 (TimesFM)
+• electricity: 2.093 vs 0.923 (TimesFM)
+• traffic: 1.915 vs 0.765 (TimesFM)
 
 Not claiming overall victory. Claiming: scale isn't the only path.
 
 Tweet 3:
 Model size comparison:
-• TimesFM: 200M params, GBs
-• Chronos: 710M params, GBs
+• TimesFM: 200M params
+• Chronos: 8M–710M params
 • PatchTST: 15M+ params
-• NanoForecast: 8.3M params, 8.3 MB ONNX INT8
+• NanoForecast: 6.5M params (~6.5 MB ONNX INT8)
 
 Tweet 4:
 Training cost comparison:
 • TimesFM: undisclosed (estimated $10K-$100K+)
-• NanoForecast: $0.12 (12 hours × $0.01/hr Colab T4)
+• NanoForecast: one free Colab T4 session (~12 hours)
 
 Tweet 5:
 Deployment:
@@ -349,12 +356,10 @@ pip install nanoforecast
 python train_from_csv.py --csv your_data.csv
 # Done. Deploy to Raspberry Pi.
 
-ONNX export. Docker. FastAPI. 45ms on a $35 Pi.
+ONNX export. Docker. FastAPI. Runs on a $35 Pi.
 
 Tweet 6:
-The surprising part? We improved accuracy 51% by fixing 3 silent training bugs.
-
-Same architecture. Same params. Just better training.
+The surprising part? v0.5 improved MASE 3.282 → 1.752 (−46.6%) over v0.3 with zero architecture changes — purely from training-pipeline fixes.
 
 Tweet 7:
 Open source (Apache 2.0):
@@ -377,18 +382,20 @@ The future of AI isn't just bigger models. It's smarter training.
 
 **Post**:
 ```
-An 8.3 million parameter AI model — trained on a single T4-class GPU (Google Colab) — outperforms Google's 200 million parameter model on 2 of 6 standard forecasting benchmarks.
+A 6.5 million parameter AI model — trained on a free Colab T4 (~12 hours) — outperforms Google's 200 million parameter TimesFM on all three ETT forecasting benchmarks (ETTh1, ETTh2, ETTm1).
 
 This isn't about "beating Google." It's about what it means for AI accessibility.
 
-The model is fully open source (Apache 2.0). It trains on a single T4-class GPU (Google Colab). It runs on a $35 Raspberry Pi.
+The model is fully open source (Apache 2.0). It trains on a single T4-class GPU (Google Colab) or any 8GB+ laptop. It runs on a $35 Raspberry Pi.
 
-Key results:
-• Electricity: outperforms TimesFM (MASE 0.709 vs 0.89)
-• Traffic: outperforms TimesFM (MASE 0.535 vs 0.62)
-• Competitive within 2-3× on remaining 4 benchmarks
+Key results (identical standard protocol for every model):
+• ETTh1: MASE 0.685 vs TimesFM 0.705
+• ETTh2: MASE 1.109 vs TimesFM 1.360
+• ETTm1: MASE 0.289 vs TimesFM 0.545
 
-The broader lesson: training pipeline quality matters as much as model scale.
+TimesFM still wins exchange_rate, electricity, and traffic — we don't overclaim.
+
+The broader lesson: training pipeline quality matters as much as model scale (v0.5 improved 46.6% over v0.3 with zero architecture changes).
 
 Live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 GitHub: https://github.com/eulogik/NanoForecast
@@ -401,7 +408,7 @@ GitHub: https://github.com/eulogik/NanoForecast
 ### Product Hunt
 
 **Product**: NanoForecast v0.5  
-**Tagline**: "Train on a T4-class GPU in 12 hours. Deploy to Raspberry Pi. Competitive with models 24× larger."  
+**Tagline**: "Train on a free Colab T4 in 12 hours. Deploy to Raspberry Pi. Beats TimesFM on all 3 ETT benchmarks."  
 **First Comment**:
 ```
 Hi! I'm Gautam, creator of NanoForecast.
@@ -410,7 +417,7 @@ The idea: most AI forecasting models are designed for GPU clusters and never shi
 
 pip install → train on your CSV → export to ONNX → run on a $35 Raspberry Pi.
 
-The model (8.3M params) outperforms Google's TimesFM (200M params) on electricity and traffic benchmarks. We got here by fixing 3 training pipeline bugs that were silently destroying accuracy — not by building a bigger model.
+The model (6.5M params) beats Google's TimesFM (200M params) on all three ETT benchmarks under an identical standard protocol. We got there by fixing 3 silent training-pipeline issues (46.6% MASE improvement, zero architecture changes) — not by building a bigger model.
 
 Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 ```
@@ -429,9 +436,9 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 | Time | Platform | Angle |
 |------|----------|-------|
 | 8:00 AM | Twitter | Core efficiency thread |
-| 9:00 AM | Hacker News | Show HN: $0.12 outperforms Google on 2 benchmarks |
+| 9:00 AM | Hacker News | Show HN: 6.5M beats TimesFM on ETT |
 | 10:00 AM | LinkedIn | Business/accessibility angle |
-| 11:00 AM | Reddit r/MachineLearning | Research: pipeline bugs |
+| 11:00 AM | Reddit r/MachineLearning | Research: pipeline fixes |
 | 12:00 PM | Product Hunt | Deployment angle |
 | 1:00 PM | Reddit r/LocalLLaMA | Edge + size comparison |
 | 2:00 PM | Dev.to/Medium | Tutorial: how to deploy |
@@ -457,43 +464,45 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 ### Say This (Precise, Honest)
 | Phrase | Why |
 |--------|-----|
-| "Outperforms TimesFM on electricity and traffic" | Specific about which benchmarks |
-| "24× smaller than TimesFM" | Parameter count comparison |
-| "Trained for \$0.12 in compute" | Precise about scope (compute only) |
-| "Competitive with models 10–24× larger" | Honest about limitations |
-| "Best-in-class on traffic" | Verifiable claim |
-| "51% improvement from pipeline fixes" | Backed by ablation study |
+| "Beats TimesFM on all three ETT benchmarks" | Specific about which benchmarks |
+| "31× smaller than TimesFM" | Parameter count comparison |
+| "Trained on a free Colab T4 in ~12 hours" | Precise about scope (compute only) |
+| "TimesFM wins exchange_rate, electricity, traffic" | Honest about limitations |
+| "46.6% improvement from pipeline fixes" | Backed by verified ablation |
+| "6.5M params" | Verified count (6,518,104) |
 
 ### Don't Say This (Vague or Misleading)
 | Phrase | Why |
 |--------|-----|
 | "Beats Google" | Implies overall victory |
-| "\$35 AI that beats Google" | Sounds like a general-purpose AI |
+| "$35 AI that beats Google" | Sounds like a general-purpose AI |
 | "SOTA" | We're not state-of-the-art overall |
 | "Revolutionary architecture" | Architecture is unchanged |
-| "Better than TimesFM" | Only on 2 of 6 benchmarks |
-| "AI for \$0.12" | Compute cost only — doesn't include labor, hardware |
+| "Better than TimesFM" | Only on 3 of 6 benchmarks |
+| "Beats TimesFM on electricity/traffic" | TimesFM wins those |
+| "8.3M params" | Verified count is 6.5M |
+| "51% / MASE 1.326 / 2.73" | Internal-protocol numbers, not comparable |
+| "24×/25× smaller" | Correct ratio is 31× |
+| "45ms on Pi / 12ms ONNX / <1ms streaming" | Latency not benchmarked — don't fabricate |
 
 ---
 
 ## Press Kit
 
 ### One-liner
-"NanoForecast v0.5: an 8.3M parameter open-source forecasting model — trained on a laptop for ~$0.12 — that outperforms Google's 200M parameter TimesFM on electricity and traffic benchmarks, and runs on a $35 Raspberry Pi."
+"NanoForecast v0.5: an open-source 6.5M-parameter forecasting model — trained on a free Colab T4 in ~12 hours — that outperforms Google's 200M-parameter TimesFM on all three ETT benchmarks (ETTh1, ETTh2, ETTm1) under an identical standard protocol, and runs on a $35 Raspberry Pi."
 
 ### Key numbers
 | Metric | Value |
 |--------|-------|
-| Parameters | 8.3M |
-| TimesFM params (comparison) | 200M (24× larger) |
-| Training cost | ~$0.12 compute |
-| Training time | 12 hours |
+| Parameters | 6.5M (6,518,104) |
+| TimesFM params (comparison) | 200M (31× larger) |
+| Training time | ~12 hours, free Colab T4 |
 | Inference hardware | Raspberry Pi 4 ($35) |
-| ONNX size | 8.3 MB (INT8) |
-| Inference latency | 45ms CPU, 12ms ONNX INT8 |
-| Streaming latency | <1ms per observation |
-| MASE overall | 1.326 |
-| Benchmark wins | Electricity, traffic |
+| ONNX size | ~6.5 MB (INT8) / ~13 MB (FP16) |
+| MASE overall (standard protocol) | 1.752 |
+| v0.3 → v0.5 improvement | −46.6% (3.282 → 1.752) |
+| Benchmark wins vs TimesFM | ETTh1, ETTh2, ETTm1 |
 
 ### Links
 | Resource | URL |

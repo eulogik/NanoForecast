@@ -5,7 +5,7 @@
 NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 - Train on a MacBook Air in 20 minutes (no GPU required)
 - Run on a Raspberry Pi / browser / Lambda / phone
-- ONNX export + INT8 quantization = 1.4 MB model
+- ONNX export + INT8 quantization ≈ 6.5 MB at 6.5M params
 - Full pipeline: `pip install` → `predict()` → `deploy` in one repo
 
 **Target markets:**
@@ -28,9 +28,9 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 | 8 | Training runbook + assistant prompt | ✅ Done | 15 min | Mac Mini prep |
 | 9 | **Streaming inference API** | ✅ Done | — | **Unique differentiator** |
 | 10 | **train_from_csv.py CLI** | ✅ Done | — | **Primary UX path** |
-| 11 | Mac Mini training: v0.2 checkpoint (Reverso recipe) | ✅ Done | — | MASE 3.45 |
-| 12 | v0.3 Frequency-Aware Hybrid architecture | ✅ Done | — | MASE 2.73 |
-| 13 | v0.5 Training fix: Pipeline/loss/robustness | ✅ Done | — | **MASE 1.326 (51% better)** |
+| 11 | Mac Mini training: v0.2 checkpoint (Reverso recipe) | ✅ Done | — | MASE 3.45 (internal protocol) |
+| 12 | v0.3 Frequency-Aware Hybrid architecture | ✅ Done | — | MASE 3.282 (standard protocol) |
+| 13 | v0.5 Training fix: Pipeline/loss/augmentation | ✅ Done | — | **MASE 1.752 (46.6% better, standard)** |
 | 14 | HF Model Card (SEO-optimized) | ✅ Done | — | Viral discovery |
 | 15 | HF Community Article | ✅ Done | — | Visibility |
 | 16 | Benchmark charts (ETTh1, Traffic) | ✅ Done | — | Proof of competitiveness |
@@ -115,8 +115,8 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 - **GitHub**: https://github.com/eulogik/NanoForecast — v0.1, v0.2, v0.3, v0.5 branches
 - **HF Model (v0.1)**: https://huggingface.co/eulogik/nanoforecast-200k — 676K params, Apache 2.0
 - **HF Model (v0.2)**: https://huggingface.co/eulogik/nanoforecast-500k — 1.6M params, Apache 2.0
-- **HF Model (v0.3)**: https://huggingface.co/eulogik/nanoforecast-v03 — 8.3M params, Apache 2.0
-- **HF Model (v0.5)**: https://huggingface.co/eulogik/nanoforecast-v05 — 8.3M params, Apache 2.0, **MASE 1.326**
+- **HF Model (v0.3)**: https://huggingface.co/eulogik/nanoforecast-v03 — 6.5M params, Apache 2.0
+- **HF Model (v0.5)**: https://huggingface.co/eulogik/nanoforecast-v05 — 6.5M params, Apache 2.0, **MASE 1.752 (standard protocol)**
 - **HF Space**: https://eulogik-nanoforecast.hf.space — upload CSV, get forecast + intervals + plot
 - **HF Model Card**: https://huggingface.co/eulogik/nanoforecast-v05 — SEO-optimized, viral-ready
 - **HF Community Article**: https://huggingface.co/eulogik/nanoforecast-v05/discussions/1
@@ -124,15 +124,15 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 
 ### v0.5 Training (completed — Colab T4 GPU, 12h, 200 epochs)
 
-**Key insight**: v0.5's 51% MASE improvement came from fixing training pipeline (loss computation, tensor truncation, data mixing) — **zero architecture changes** vs v0.3.
+**Key insight**: v0.5's 46.6% MASE improvement came from fixing the training pipeline (loss-scope handling, tensor shape alignment, augmentation coverage) — **zero architecture changes** vs v0.3.
 
-**Bugs fixed**:
+**v0.5 development fixes**:
 1. `pipeline.py` always returned `"horizon"` key even when `multi_horizon=False`, causing multi-horizon loss path to always be used
 2. Notebook indentation errors in training loop
 3. Added `BEST_PATH` to save best model separately from checkpoint
 4. `checkpoint_interval` changed from 5 to 2 for safer resume
 
-**Final Benchmark Results (v0.5)**:
+**Final Benchmark Results (v0.5, internal `benchmark.py` protocol)**:
 | Dataset | MASE | MSE | MAE | Coverage (p90) |
 |---|---|---|---|---|
 | ETTh1 | 0.913 | 0.703 | 0.327 | 93.7% |
@@ -143,7 +143,7 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 | traffic | 0.535 | 0.0000154 | 0.015 | 91.6% |
 | **Overall** | **1.326** | **1.238** | **0.232** | **94.5%** |
 
-**Note on MSE normalization**: NanoForecast uses Instance Robust Scaler (median/IQR), so raw MSE values aren't directly comparable to models using standard normalization. **MASE is the fair metric** — and NanoForecast's MASE 1.326 is competitive with published leaderboards.
+**Note on MSE normalization**: NanoForecast uses Instance Robust Scaler (median/IQR), so raw MSE values aren't directly comparable to models using standard normalization. The table above is the repo's own internal protocol; the authoritative comparison is the standard protocol below (MASE overall 1.752 vs TimesFM 1.447, PatchTST 1.554).
 
 ---
 
@@ -211,7 +211,7 @@ Infra lessons (from the last chapter of the previous session):
    - `launchctl`-detached local run overnight (self-healing, resume-aware).
    - Worst case, honestly print `N/A`/subsample-deviation on PatchTST and drop Chronos from the big sets (still completable on small sets).
 2. **Refresh `deploy/paper_v05.tex` results with the standard-protocol numbers** (only NF-v0.5 vs TimesFM is currently complete; that alone is already a publishable comparison table). The paper must not cite the old mixed-protocol numbers.
-3. **Update the viral claims** (HF model card, README, LinkedIn/`LAUNCH_KIT.md`): the honest headline is "8.3M-param model beats TimesFM **on ETT**, matches on exchange_rate, ~25× smaller + deployable". Do not claim a blanket "beats TimesFM" while electricity/traffic are 2–2.5× worse.
+3. **Update the viral claims** (HF model card, README, LinkedIn/`LAUNCH_KIT.md`): the honest headline is "6.5M-param model beats TimesFM **on all three ETT benchmarks**, 31× smaller + deployable". Do not claim a blanket "beats TimesFM" — TimesFM wins exchange_rate, electricity, and traffic.
 4. **v0.6 — close the electricity/traffic gap**: raise channels-per-dataset to ~64–128 for the two big sets, extend the synthetic mix, longer fine-tune on T4/Xeon, re-run standard protocol, expect MASE under the TimesFM lines.
 5. **Commit + push the backlog** (files below): the v0.5 branch has uncommitted + untracked benchmark/paper/launch artifacts (~20 files). Commit per-milestone, then push.
 
@@ -234,7 +234,7 @@ Infra lessons (from the last chapter of the previous session):
 - Deploy with FastAPI or ONNX.js
 
 **For HF Hub users:**
-- Smallest deployable TS model on the Hub (1.4 MB INT8)
+- Smallest deployable TS model on the Hub (~6.5 MB INT8 at 6.5M params)
 - `from_pretrained` + `predict()` in 2 lines
 - Model card with honest benchmarks
 - Gradio Space with live demo

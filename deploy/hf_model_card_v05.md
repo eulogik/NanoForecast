@@ -45,7 +45,7 @@ datasets:
 
 ### World's Most Deployable Time Series Transformer
 
-**8.3M parameters · CPU inference · Raspberry Pi · ONNX · Streaming**
+**6.5M parameters · CPU inference · Raspberry Pi · ONNX · Streaming**
 
 [![Hugging Face](https://img.shields.io/badge/🤗-Hugging%20Face-FFD21E?style=for-the-badge)](https://huggingface.co/eulogik/nanoforecast-v05)
 [![GitHub](https://img.shields.io/badge/GitHub-eulogik%2FNanoForecast-181717?style=for-the-badge&logo=github)](https://github.com/eulogik/NanoForecast)
@@ -61,95 +61,60 @@ datasets:
 
 ## 📊 Benchmark Results (v0.5)
 
-Trained on 6 standard forecasting datasets + 10K synthetic records. **MASE 1.326 overall — 51% better than v0.3 (2.73).**
+All numbers use the **standard protocol** from `benchmark_standard.py`: context 512, horizon 48,
+non-overlapping test windows over the full test split, MASE scaled by the seasonal-naive in-sample
+MAE, all channels. Every model below (including TimesFM and PatchTST) was evaluated under this
+identical protocol.
 
-<table>
-<tr>
-<th>Dataset</th>
-<th>MASE ↓</th>
-<th>sMAPE (%) ↓</th>
-<th>CRPS ↓</th>
-<th>Coverage (p50)</th>
-<th>Coverage (p90)</th>
-</tr>
-<tr><td>ETTh1</td><td><b>0.913</b></td><td>5.89</td><td>0.425</td><td>51.2%</td><td>94.5%</td></tr>
-<tr><td>ETTh2</td><td><b>0.914</b></td><td>3.54</td><td>0.561</td><td>50.0%</td><td>95.2%</td></tr>
-<tr><td>ETTm1</td><td><b>1.305</b></td><td>7.22</td><td>0.304</td><td>49.5%</td><td>94.7%</td></tr>
-<tr><td>exchange_rate</td><td><b>3.578</b></td><td>0.80</td><td>0.004</td><td>46.9%</td><td>94.4%</td></tr>
-<tr><td>electricity</td><td><b>0.709</b></td><td>2.63</td><td>59.93</td><td>49.0%</td><td>92.2%</td></tr>
-<tr><td>traffic</td><td><b>0.535</b></td><td>13.40</td><td>0.002</td><td>49.5%</td><td>95.9%</td></tr>
-<tr style="background:#1a1a2e;font-weight:bold">
-<td>OVERALL</td><td><b>1.326</b></td><td>5.58</td><td>10.20</td><td>49.4%</td><td>94.5%</td>
-</tr>
-</table>
+| Dataset | NanoForecast v0.5 (6.5M) | TimesFM (200M) | PatchTST (15M+) |
+|---:|---:|---:|---:|
+| ETTh1 | **0.685** | 0.705 | 0.781 |
+| ETTh2 | **1.109** | 1.360 | 1.467 |
+| ETTm1 | **0.289** | 0.545 | 0.488 |
+| exchange_rate | 4.418 | **4.383** | 3.861 |
+| electricity | 2.093 | **0.923** | 1.347 |
+| traffic | 1.915 | **0.765** | 1.379 |
+| **Overall** | 1.752 | **1.447** | 1.554 |
 
-### 📈 Version Comparison (same architecture, same data)
+NanoForecast v0.5 **outperforms TimesFM on all three ETT datasets** (and PatchTST on the same
+three) at 31× fewer parameters than TimesFM. TimesFM and PatchTST win on exchange_rate,
+electricity, and traffic.
+
+### 📈 Version Comparison (same architecture, pipeline fixes only)
 
 | Version | Params | MASE ↓ | Improvement | Training |
 |:---|---:|---:|:---|:---|
-| v0.2 (1.6M) | 1.6M | 3.45 | baseline | Mac Mini, 100 epochs |
-| v0.3 (8.3M) | 8.3M | 2.73 | ↓ 21% | Colab T4, 200 epochs |
-| **v0.5 (8.3M)** | **8.3M** | **1.326** | **↓ 51%** | **Colab T4, 200 epochs** |
+| v0.3 (released) | 6.5M | 3.282 | baseline | Colab T4, 200 epochs |
+| **v0.5 (released)** | **6.5M** | **1.752** | **↓ 46.6%** | **Colab T4, 200 epochs** |
 
-> **v0.5 achieves MASE < 1.0 on 3 of 6 datasets** — competitive with models 24× larger.
+> **v0.5 improved MASE by 46.6% with zero architecture changes** — the gains came from three
+> training-pipeline fixes (loss-scope handling, tensor shape alignment, augmentation coverage).
 
 ### 🏆 Why NanoForecast Wins on Deployment
 
-| Feature | NanoForecast v0.5 | TimesFM | Chronos-T5 | Lag-Llama | PatchTST | Timer |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Parameters** | **8.3M** | 200M | 8M–710M | 16.6M | 15M+ | 200M+ |
-| **CPU inference** | **✅** | ❌ | ⚠️ | ❌ | ❌ | ❌ |
-| **Streaming** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **ONNX export** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Raspberry Pi** | **✅** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Train from CSV** | **✅** | ❌ | ❌ | ⚠️ | ⚠️ | ❌ |
-| **Quantiles** | **✅ (5)** | ❌ | ✅ | ✅ | ❌ | ❌ |
-| **License** | **Apache 2.0** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |
-| **Zero-shot** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **ETTh1 MSE-96** | ~0.70 | 0.381 | 0.395 | 0.402 | 0.370 | **0.368** |
-
-### 📐 ETTh1-96 vs Published Leaderboards
-
-| Model | Params | MSE-96 | CPU? | Streaming? | Source |
-|:---|---:|---:|:---:|:---:|:---|
-| Timer (SOTA) | 200M+ | **0.368** | ❌ | ❌ | CodeSOTA, 2025 |
-| PatchTST | 15M+ | 0.370 | ❌ | ❌ | ICLR 2023 |
-| Moirai | 311M | 0.374 | ❌ | ❌ | ICML 2024 |
-| TimesFM | 200M | 0.381 | ❌ | ❌ | ICML 2024 |
-| Chronos | 8M–710M | 0.395 | ⚠️ | ❌ | ICML 2024 |
-| iTransformer | 15M+ | 0.386 | ❌ | ❌ | ICLR 2024 |
-| N-BEATS | 5M+ | 0.416 | ⚠️ | ❌ | ICLR 2020 |
-| **NanoForecast** | **8.3M** | ~0.70 | **✅** | **✅** | **This work** |
-
-> **Note**: NanoForecast's MSE is higher on ETTh1, but it's the **only model in this list** that runs on CPU, supports streaming inference, exports to ONNX, and trains in ~12 hours on a single T4-class GPU (Google Colab). For deployment scenarios where GPU is unavailable, NanoForecast is the best option.
-
-### 🎯 Traffic Dataset — Where NanoForecast Shines
-
-| Model | Traffic MSE-96 | Notes |
-|:---|---:|:---|
-| PatchTST | 0.360 | Fine-tuned, GPU required |
-| Timer | 0.355 | Zero-shot, GPU required |
-| **NanoForecast** | **0.0000154** | **MASE 0.535, CPU inference** |
-
-> On the traffic dataset, NanoForecast achieves **MASE 0.535** — outperforming the naive forecast by 47%. The MSE is orders of magnitude smaller due to different normalization.
+| Feature | NanoForecast v0.5 | TimesFM | Chronos-T5 | Lag-Llama | PatchTST |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| **Parameters** | **6.5M** | 200M | 8M–710M | 16.6M | 15M+ |
+| **Streaming inference** | **✅** | ❌ | ❌ | ❌ | ❌ |
+| **ONNX export** | **✅** | ❌ | ❌ | ❌ | ❌ |
+| **Train from CSV** | **✅** | ❌ | ❌ | ⚠️ | ⚠️ |
+| **Quantiles** | **✅ (5)** | ⚠️ | ✅ | ✅ | ❌ |
+| **License** | **Apache 2.0** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |
+| **Zero-shot** | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 ### 📊 Visualizations
 
-**ETTh1-96 MSE Comparison** — NanoForecast (orange) vs published leaderboards:
+**Standard-Protocol MASE by Dataset** — NanoForecast (orange) vs TimesFM vs PatchTST:
 
-![ETTh1 MSE Comparison](assets/benchmark_etth1_mse.png)
+![MASE by dataset](assets/benchmark_mase_standard.png)
 
-**Traffic-96 MSE** — NanoForecast achieves orders-of-magnitude lower MSE:
+**v0.3 → v0.5 pipeline refinement** — same architecture, MASE 3.282 → 1.752:
 
-![Traffic MSE Comparison](assets/benchmark_traffic_mse.png)
+![v0.3 vs v0.5](assets/benchmark_v03_vs_v05.png)
 
-**Version Comparison** — v0.2 → v0.3 → v0.5 progress:
+**Parameter Efficiency** — MASE⁻¹ per parameter:
 
-![Version Comparison](assets/benchmark_version_comparison.png)
-
-**Deployment Capability** — NanoForecast dominates on deployability:
-
-![Radar Comparison](assets/benchmark_radar.png)
+![Efficiency](assets/benchmark_efficiency.png)
 
 ---
 
@@ -198,7 +163,7 @@ Trained on 6 standard forecasting datasets + 10K synthetic records. **MASE 1.326
 
 | Component | Detail |
 |:---|:---|
-| **Parameters** | 8,294,104 (~8.3M) |
+| **Parameters** | 6,518,104 (~6.5M) |
 | **Context length** | 512 timesteps |
 | **Prediction length** | 48 steps (configurable) |
 | **Patch size** | 8 |
@@ -274,7 +239,7 @@ docker build -t nanoforecast -f deploy/Dockerfile .
 docker run -p 8000:8000 nanoforecast
 ```
 
-### ONNX (8.3 MB INT8 / 16.6 MB FP16 — Edge / IoT / Browser)
+### ONNX (~6.5 MB INT8 / ~13 MB FP16 — Edge / IoT / Browser)
 
 ```bash
 pip install "nanoforecast[onnx]"
@@ -364,7 +329,8 @@ Upload a CSV → get a forecast + prediction intervals + decomposition plot. No 
 
 ## 📊 Coverage Analysis
 
-Well-calibrated uncertainty estimates:
+Well-calibrated uncertainty estimates (measured under the internal `benchmark.py` protocol,
+see `benchmark-v05.json`):
 
 | Quantile | Target | Actual (mean across datasets) |
 |:---|---:|---:|
@@ -382,7 +348,7 @@ The p50 and p90 coverage are close to target, providing reliable uncertainty qua
 
 | Feature | NanoForecast | TimesFM | Chronos | Lag-Llama |
 |:---|:---:|:---:|:---:|:---:|
-| **Parameters** | 8.3M | 200M | 8M–710M | 16.6M |
+| **Parameters** | 6.5M | 200M | 8M–710M | 16.6M |
 | **CPU inference** | ✅ | ❌ | ⚠️ | ❌ |
 | **Streaming** | ✅ | ❌ | ❌ | ❌ |
 | **ONNX export** | ✅ | ❌ | ❌ | ❌ |
@@ -396,7 +362,7 @@ The p50 and p90 coverage are close to target, providing reliable uncertainty qua
 
 ## ⚠️ Known Limitations
 
-- **Accuracy vs SOTA**: MASE 1.326 is competitive with mid-size models but not SOTA (TimesFM, Chronos-T5). NanoForecast prioritizes deployability over raw accuracy.
+- **Accuracy vs SOTA**: MASE 1.752 overall (standard protocol) — competitive on the ETT datasets (wins vs TimesFM and PatchTST on all three), but not SOTA on exchange_rate/electricity/traffic. NanoForecast prioritizes deployability over raw accuracy.
 - **Univariate**: Multivariate support is per-dimension independent (no cross-series learning).
 - **Fixed context**: 512 timesteps — longer history is truncated.
 - **NaN handling**: Missing values / irregular sampling not handled automatically.
@@ -411,7 +377,7 @@ The p50 and p90 coverage are close to target, providing reliable uncertainty qua
   author={Eulogik},
   year={2026},
   url={https://github.com/eulogik/NanoForecast},
-  note={8.3M parameters, CPU inference, ONNX export, streaming}
+  note={6.5M parameters, CPU inference, ONNX export, streaming}
 }
 ```
 

@@ -1,5 +1,5 @@
 ---
-title: "NanoForecast v0.5: From MASE 2.73 → 1.326 with Zero Architecture Changes"
+title: "NanoForecast v0.5: From MASE 3.28 → 1.75 with Zero Architecture Changes"
 thumbnail: /blog/assets/nanoforecast-v05/thumbnail.png
 authors:
 - user: GautamKishore
@@ -7,9 +7,9 @@ authors:
   org: eulogik
 ---
 
-# NanoForecast v0.5: From MASE 2.73 → 1.326 with Zero Architecture Changes
+# NanoForecast v0.5: From MASE 3.28 → 1.75 with Zero Architecture Changes
 
-*How fixing training data pipelines and loss computation slashed error by 51% on a 8.3M parameter model.*
+*How fixing the training pipeline — loss scope, tensor shapes, augmentation coverage — slashed error by 46.6% on a 6.5M parameter model.*
 
 ---
 
@@ -19,32 +19,36 @@ Time series forecasting models fall into two camps:
 1. **Massive foundation models** (TimesFM, Chronos, Lag-Llama) — require GPUs, 100M+ parameters, and can't run on edge devices
 2. **Small deployable models** — tiny and fast, but accuracy is usually mediocre
 
-**NanoForecast v0.5 proves you can have both**: 8.3M parameters, CPU inference, ONNX export, streaming — AND MASE 1.326 (competitive with models 24× larger).
+**NanoForecast v0.5 proves you can have both**: 6.5M parameters, CPU inference, ONNX export, streaming — and it **outperforms TimesFM on all three ETT benchmarks** (ETTh1, ETTh2, ETTm1) despite being 31× smaller.
 
 ## The Key Insight
 
-We didn't change the architecture between v0.3 and v0.5. Same LongConv + DeltaNet RNN, same gated router, same MLP blocks. **The 51% improvement came entirely from fixing the training pipeline**:
+We didn't change the architecture between v0.3 and v0.5. Same LongConv + DeltaNet RNN, same gated router, same MLP blocks. **The 46.6% improvement came entirely from fixing the training pipeline**:
 
-1. **Corrected loss computation** — v0.3 had a subtle bug where the reconstruction loss was computed on mismatched tensor shapes
-2. **Fixed tensor truncation** — multi-horizon training was truncating context tensors that should have been preserved
-3. **Better data mixing** — 6 real datasets + 10K synthetic records, properly shuffled with resolution-aware batching
-4. **Proper training recipe** — OneCycleLR with 3e-5 peak LR, gradient clipping at 1.0, bfloat16 mixed precision
+1. **Loss-scope handling** — v0.5's development fixed how the multi-task loss weights the horizon, point, and quantile terms
+2. **Tensor shape alignment** — quantile-loss and reconstruction paths were aligned to the correct shapes
+3. **Augmentation coverage** — broader augmentation (jitter, scaling, shifts, masking, reversal) applied uniformly to real and synthetic records
 
-This is a lesson for the community: **sometimes the biggest gains come from fixing your data pipeline, not your model**.
+This is a lesson for the community: **sometimes the biggest gains come from fixing your training pipeline, not your model**.
 
 ## Benchmark Results
 
-| Dataset | v0.3 MASE | v0.5 MASE | Improvement |
-|:---|---:|---:|:---|
-| ETTh1 | 1.95 | **0.913** | ↓ 53% |
-| ETTh2 | 2.74 | **0.914** | ↓ 67% |
-| ETTm1 | 2.17 | **1.305** | ↓ 40% |
-| exchange_rate | 7.44 | **3.578** | ↓ 52% |
-| electricity | 1.29 | **0.709** | ↓ 45% |
-| traffic | 0.81 | **0.535** | ↓ 34% |
-| **Overall** | **2.73** | **1.326** | **↓ 51%** |
+Standard protocol (context 512, horizon 48, non-overlapping test windows, all channels,
+MASE scaled by seasonal-naive in-sample MAE — identical for every model):
 
-The model achieves **MASE < 1.0 on 3 of 6 datasets** — a threshold that previously required models 10-100× larger.
+| Dataset | v0.3 MASE | v0.5 MASE | TimesFM | PatchTST |
+|:---|---:|---:|---:|---:|
+| ETTh1 | 0.676 | **0.685** | 0.705 | 0.781 |
+| ETTh2 | 1.357 | **1.109** | 1.360 | 1.467 |
+| ETTm1 | 0.291 | **0.289** | 0.545 | 0.488 |
+| exchange_rate | 12.847 | 4.418 | **4.383** | 3.861 |
+| electricity | 2.418 | 2.093 | **0.923** | 1.347 |
+| traffic | 2.102 | 1.915 | **0.765** | 1.379 |
+| **Overall** | **3.282** | **1.752** | **1.447** | 1.554 |
+
+NanoForecast v0.5 **outperforms TimesFM on all three ETT datasets** (and PatchTST on the
+same three) at 31× fewer parameters. TimesFM and PatchTST win on exchange_rate, electricity,
+and traffic.
 
 ## Architecture: Why It Works
 
@@ -73,12 +77,12 @@ result = model.predict(context, horizon=48, freq=1)
 
 ### Deployment options:
 
-| Platform | Latency | Memory |
-|:---|---:|---:|
-| CPU (laptop) | ~5ms | ~33MB |
-| Raspberry Pi (ARM) | ~50ms | ~33MB |
-| ONNX (browser) | ~10ms | ~1.4MB |
-| FastAPI (server) | ~5ms | ~33MB |
+| Platform | Notes |
+|:---|:---|
+| CPU (laptop) | Native PyTorch inference |
+| Raspberry Pi (ARM) | Designed for CPU/ARM inference |
+| ONNX (browser) | ~13 MB FP16 / ~6.5 MB INT8 at 6.5M params |
+| FastAPI (server) | Docker-ready |
 
 ### Streaming inference (unique to NanoForecast)
 
@@ -118,7 +122,7 @@ python3 pretrain.py \
 
 | Feature | NanoForecast v0.5 | TimesFM | Chronos-T5 | Lag-Llama |
 |:---|:---:|:---:|:---:|:---:|
-| **Parameters** | 8.3M | 200M | 8M–710M | 16.6M |
+| **Parameters** | 6.5M | 200M | 8M–710M | 16.6M |
 | **CPU inference** | ✅ | ❌ | ⚠️ | ❌ |
 | **Streaming** | ✅ | ❌ | ❌ | ❌ |
 | **ONNX export** | ✅ | ❌ | ❌ | ❌ |

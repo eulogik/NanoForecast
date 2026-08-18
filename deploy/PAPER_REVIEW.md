@@ -3,6 +3,16 @@
 Full read of `paper_v05.tex` + cross-check of every claim against the cited papers,
 the actual model code, checkpoints, and deploy assets. Goal: zero rejection risk.
 
+> **RESOLUTION NOTE (18 Aug 2026)**: This review was the starting point for the deep
+> verification pass. One of its "verified ground truth" items was **later overturned**:
+> the parameter count is **6,518,104 (6.5M)**, verified from the released checkpoints'
+> `model_card.json` (both v0.3 and v0.5) and direct `sum(p.numel())` — not 8,294,104.
+> All review findings below were addressed in `paper_v05.tex` (see commit `d074e5c`):
+> baselines recomputed under one standard protocol, size multipliers corrected to
+> 31× (TimesFM) / 109× (Chronos-T5), per-dataset ablation table, honest claims.
+> Any number in this file that conflicts with the released paper is stale by design
+> (this is the historical review record, not the current truth).
+
 ## Verified GROUND TRUTH (from the actual repo, not the docs)
 
 | Item | Truth | Source |

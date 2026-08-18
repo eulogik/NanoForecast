@@ -1,23 +1,40 @@
 # NanoForecast v0.5 — Story Angles for Every Audience
 
+All claims below are backed by the verified standard-protocol benchmark
+(`benchmark_standard.py`): context 512, horizon 48, non-overlapping test
+windows, all channels, seasonal-naive MASE. Every number was produced by us
+for every model under the identical protocol.
+
+**Verified headline facts:**
+- NanoForecast v0.5: 6.5M params (6,518,104) — 31× smaller than TimesFM (200M)
+- Beats TimesFM on all three ETT benchmarks: ETTh1 0.685 vs 0.705, ETTh2 1.109 vs 1.360, ETTm1 0.289 vs 0.545
+- Beats PatchTST (15M+) on the same three ETT datasets
+- TimesFM and PatchTST win exchange_rate, electricity, traffic — never claim a blanket win
+- v0.3 → v0.5: standard-protocol MASE 3.282 → 1.752 (−46.6%), zero architecture changes
+- Trained ~12h on a free Colab T4 (checkpoint wall time 43,750s)
+- ONNX: ~13 MB FP16 / ~6.5 MB INT8
+
+---
+
 ## The Headlines (Pick One Per Platform)
 
 ---
 
-### THE KILLER ANGLE: "The $35 AI That Beats Google"
+### THE KILLER ANGLE: "The Tiny Model That Beats Google on All 3 ETT Benchmarks"
 
 **For: TechCrunch, Hacker News, general tech press**
 
-> Google spent millions training TimesFM (200M params). We trained a model that beats it on 2 out of 6 datasets — on a $35 Raspberry Pi — in 12 hours — for $0.12 in compute.
+> Google spent millions training TimesFM (200M params). We trained a 6.5M-parameter model that beats it on all three ETT benchmarks — on a free Colab T4 in ~12 hours — and it runs on a $35 Raspberry Pi.
 
 **Proof points:**
-- Electricity: NanoForecast 0.709 vs TimesFM 0.89 (we win)
-- Traffic: NanoForecast 0.535 vs TimesFM 0.62 (we win)
-- Size: 8.3M vs 200M params (25x smaller)
+- ETTh1: NanoForecast 0.685 vs TimesFM 0.705 (we win)
+- ETTh2: NanoForecast 1.109 vs TimesFM 1.360 (we win)
+- ETTm1: NanoForecast 0.289 vs TimesFM 0.545 (we win)
+- Size: 6.5M vs 200M params (31× smaller)
 - Hardware: Raspberry Pi vs GPU cluster
-- Cost: $0.12 vs $10,000+ in compute
+- Training: free Colab T4, ~12 hours
 
-**Why it works:** Underdog story. Everyone loves David vs Goliath.
+**Why it works:** Underdog story. Everyone loves David vs Goliath — with honest scorekeeping.
 
 ---
 
@@ -25,31 +42,32 @@
 
 **For: Product Hunt, LinkedIn, startup founders**
 
-> Most AI models never make it past a Jupyter notebook. This one trains on your laptop, exports to 1.4 MB, and runs on a $35 computer.
+> Most AI models never make it past a Jupyter notebook. This one trains on your laptop, exports to ~6.5 MB ONNX, and runs on a $35 computer.
 
 **Proof points:**
 - `pip install nanoforecast` — works like any Python package
 - Train on your CSV: `train_from_csv.py --csv your_data.csv`
-- ONNX export: 1.4 MB (smaller than most photos)
+- ONNX export: ~6.5 MB INT8
 - Docker: ARM/x86 multi-arch
-- Latency: <50ms on CPU
+- Streaming: O(1) update per observation (DeltaNet RNN state)
 
 **Why it works:** Developers are tired of AI that needs a PhD and a GPU cluster to deploy.
 
 ---
 
-### THE RESEARCH ANGLE: "Bigger Isn't Better"
+### THE RESEARCH ANGLE: "Bigger Isn't Always Better"
 
 **For: arXiv, Papers With Code, ML Twitter**
 
-> We improved accuracy 51% without adding a single parameter. The ML community's obsession with scale might be missing something more fundamental.
+> We improved MASE by 46.6% without adding a single parameter. The ML community's obsession with scale might be missing something more fundamental.
 
 **Proof points:**
-- v0.3 → v0.5: Same architecture, 51% better
-- 8.3M params beats PatchTST (15M+) on electricity
+- v0.3 → v0.5: Same architecture (6.5M), MASE 3.282 → 1.752 (−46.6%)
+- Beats TimesFM (200M) on all three ETT benchmarks at 31× fewer parameters
 - Training pipeline fixes > architecture changes
+- Full standard-protocol ablation in the paper
 
-**Why it works:** Challenges the dominant narrative in ML research.
+**Why it works:** Challenges the dominant narrative in ML research — with reproducible evidence.
 
 ---
 
@@ -57,35 +75,35 @@
 
 **For: YouTube, general audience, non-tech press**
 
-> In a world of billion-parameter AI models that need entire data centers, a tiny model trained on a laptop just beat them — on a Raspberry Pi.
+> In a world of billion-parameter AI models that need entire data centers, a tiny model trained on a free Colab GPU just beat Google's on three benchmarks — and runs on a Raspberry Pi.
 
 **Proof points:**
-- Fits in your pocket (1.4 MB)
-- Runs on a $35 computer
-- Trained by one person on a laptop
-- Beats models 25x bigger
+- Fits on a $35 computer
+- Trained by one person on a free Colab GPU
+- Beats models 31× bigger (on 3 of 6 benchmarks)
+- Honest about where it loses (exchange, electricity, traffic)
 
 **Why it works:** Underdog story + counter-intuitive result = virality.
 
 ---
 
-### THE COST ANGLE: "The $0.12 AI Model"
+### THE COST ANGLE: "The Free-to-Train AI Model"
 
 **For: Business Insider, Forbes, startup press**
 
-> While OpenAI spends billions on compute, this model was trained for $0.12 and runs on hardware that costs less than a Netflix subscription.
+> While OpenAI spends billions on compute, this model was trained on a free Colab T4 (~12 hours) and runs on hardware that costs less than a Netflix subscription.
 
 **Proof points:**
-- Training cost: ~$0.12 (12 hours on Colab T4 at $0.01/hr)
+- Training cost: one free Colab T4 session (~12 hours)
 - Hardware cost: $35 (Raspberry Pi) vs $10,000+ (GPU server)
 - Inference cost: near-zero (runs on CPU)
-- Model size: 1.4 MB ONNX
+- Model size: ~6.5 MB ONNX INT8
 
 **Why it works:** Cost efficiency is a universal story.
 
 ---
 
-### THE DEPLOYMENT ANGLE: "From Laptop to Production in 60 Seconds"
+### THE DEPLOYMENT ANGLE: "From Laptop to Production in Minutes"
 
 **For: Dev.to, Medium, Python Weekly**
 
@@ -106,11 +124,11 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **For: IoT, edge computing, real-time analytics press**
 
-> Every other AI model reprocesses your entire history every time you ask for a forecast. This one remembers. Feed it one value, get an updated forecast in <1ms.
+> Every other time series model reprocesses your entire history every time you ask for a forecast. This one remembers. Feed it one value, get an updated forecast immediately.
 
 **Proof points:**
 - DeltaNet maintains recurrent state
-- Streaming update: <1ms per observation
+- O(1) streaming update per observation
 - No other TS model does this
 - Perfect for IoT sensors, live dashboards, financial feeds
 
@@ -126,7 +144,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **Proof points:**
 - Runs on Raspberry Pi (no internet needed)
-- 1.4 MB (works on slow connections)
+- ~6.5 MB ONNX INT8 (works on slow connections)
 - Trains on local data (no cloud required)
 - Apache 2.0 (free forever)
 
@@ -134,32 +152,33 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 ---
 
-### THE "FIX YOUR CODE" ANGLE: "3 Silent Bugs Are Probably Ruining Your ML"
+### THE "FIX YOUR CODE" ANGLE: "3 Silent Pipeline Issues Are Probably Costing You Accuracy"
 
 **For: ML engineers, data scientists**
 
-> We found 3 bugs that were silently destroying our model's accuracy. The models still trained. Still converged. Still looked fine. They were just 50% worse than they should have been.
+> We found 3 silent training-pipeline issues that were costing our model 46.6% accuracy. The model still trained. Still converged. Still looked fine. It was just much worse than it should have been.
 
 **Proof points:**
-- Bug 1: Loss computed on wrong dimensions (21% improvement)
-- Bug 2: Tensor truncation errors (35% improvement)
-- Bug 3: Synthetic data drowning real patterns (51% improvement)
+- Fix 1: Loss-scope handling (multi-task loss scope + stray "horizon" key)
+- Fix 2: Tensor shape alignment in the quantile-loss path
+- Fix 3: Augmentation coverage (broader, uniform across real and synthetic records)
+- Combined: MASE 3.282 → 1.752 (−46.6%), zero architecture changes
 
-**Why it works:** Every ML engineer fears silent bugs in their pipeline.
+**Why it works:** Every ML engineer fears silent problems in their pipeline.
 
 ---
 
-### THE "BEAT GOOGLE" ANGLE: "Open Source Beats Proprietary"
+### THE "BEAT GOOGLE" ANGLE: "Open Source Beats Proprietary (On 3 Benchmarks)"
 
 **For: Open source advocates, Linux/FOSS press**
 
-> Google won't release TimesFM's weights. We released everything: code, model, training pipeline. And we beat them on 2 out of 6 datasets.
+> Google won't release TimesFM's weights. We released everything: code, model, training pipeline. And we beat them on all three ETT benchmarks — at 31× fewer parameters.
 
 **Proof points:**
 - Apache 2.0 license (free forever)
 - Full source code on GitHub
 - Pretrained checkpoints on HuggingFace
-- Beats TimesFM on electricity and traffic
+- Beats TimesFM on ETTh1, ETTh2, ETTm1 (standard protocol)
 
 **Why it works:** Open source vs proprietary is a timeless narrative.
 
@@ -169,17 +188,16 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 | Platform | Angle | Headline |
 |----------|-------|----------|
-| Hacker News | $35 AI beats Google | "Show HN: $35 Raspberry Pi AI that beats Google's TimesFM on 2 datasets" |
-| Reddit r/MachineLearning | Training pipeline bugs | "[R] 51% accuracy improvement from fixing 3 training bugs (same architecture)" |
-| Reddit r/LocalLLaMA | Edge deployment | "8.3M param model that trains on laptop, runs on Raspberry Pi, beats PatchTST" |
+| Hacker News | Tiny model beats Google | "Show HN: 6.5M param model beats Google's TimesFM (200M) on all 3 ETT benchmarks" |
+| Reddit r/MachineLearning | Training pipeline fixes | "[R] 46.6% MASE improvement from 3 training pipeline fixes (same architecture, 6.5M)" |
+| Reddit r/LocalLLaMA | Edge deployment | "6.5M param model that trains on a free Colab GPU, runs on Raspberry Pi, beats TimesFM on ETT" |
 | Reddit r/Python | pip install | "pip install a time series model, train on your CSV, deploy to Raspberry Pi" |
-| Product Hunt | Ships in 60 seconds | "NanoForecast: Train a competitive AI model on your laptop in 12 hours" |
-| LinkedIn | Business efficiency | "We built a competitive AI model for $0.12. Here's what that means for startups." |
-| Twitter/X | Thread (see below) | "We trained a model that beats Google's on 2 datasets. It cost $0.12." |
-| YouTube | David vs Goliath | "The $35 AI That Beats Google" |
-| TechCrunch | Cost disruption | "This 8.3M parameter model was trained for $0.12 and runs on a Raspberry Pi" |
-| Forbes | Startup angle | "How a 2-person team built an AI model that beats Google's — for $0.12" |
-| ArXiv | Training > Architecture | "NanoForecast v0.5: 51% improvement from training pipeline fixes (zero architecture changes)" |
+| Product Hunt | Ships in minutes | "NanoForecast: Train a competitive AI model on your laptop in minutes" |
+| LinkedIn | Business efficiency | "We built a model that beats Google's TimesFM on 3 benchmarks — 31× smaller" |
+| Twitter/X | Thread (see below) | "We trained a model that beats Google's on 3 benchmarks. It cost ~12 free Colab hours." |
+| YouTube | David vs Goliath | "The Tiny AI That Beats Google on 3 Benchmarks" |
+| TechCrunch | Cost disruption | "This 6.5M parameter model was trained on a free Colab GPU and runs on a Raspberry Pi" |
+| ArXiv | Training > Architecture | "NanoForecast v0.5: 46.6% improvement from training pipeline fixes (zero architecture changes)" |
 
 ---
 
@@ -187,42 +205,46 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 ```
 Tweet 1 (The Hook):
-We trained an AI model that beats Google's on 2 datasets.
+We trained an AI model that beats Google's TimesFM on all 3 ETT benchmarks.
 
-It cost $0.12.
+It's 31× smaller (6.5M vs 200M params).
+It trains on a free Colab GPU in ~12 hours.
 It runs on a $35 Raspberry Pi.
-It trains on a laptop in 12 hours.
 
-Google spent millions. We spent pocket change.
+Google spent millions. We spent free GPU hours.
 
 🧵
 
 Tweet 2 (The Result):
-NanoForecast v0.5:
-• 8.3M parameters (vs Google's 200M)
-• Beats TimesFM on electricity (0.709 vs 0.89)
-• Beats TimesFM on traffic (0.535 vs 0.62)
-• Trains on a laptop, not a data center
+NanoForecast v0.5 (standard protocol, identical for both models):
+• ETTh1: 0.685 vs TimesFM 0.705 ✓
+• ETTh2: 1.109 vs TimesFM 1.360 ✓
+• ETTm1: 0.289 vs TimesFM 0.545 ✓
+• exchange: 4.418 vs 4.383 ✗
+• electricity: 2.093 vs 0.923 ✗
+• traffic: 1.915 vs 0.765 ✗
+
+3-3. Honest scorekeeping. Scale still matters — but it's not everything.
 
 Tweet 3 (The Cost):
 Training cost breakdown:
-• Colab T4: 12 hours × $0.01/hr = $0.12
+• Colab T4: free (~12 hours)
 • Raspberry Pi: $35 one-time
-• Inference: free (runs on CPU)
+• Inference: runs on CPU
 
 Google's TimesFM needs GPU clusters. We need a laptop and a Pi.
 
 Tweet 4 (The Size):
 Model size comparison:
 • TimesFM: 200M parameters, gigabytes
-• Chronos: 710M parameters, gigabytes
-• PatchTST: 15M+ parameters, hundreds of MB
-• NanoForecast: 8.3M parameters, 1.4 MB ONNX
+• Chronos: 8M–710M parameters, gigabytes
+• PatchTST: 15M+ parameters
+• NanoForecast: 6.5M parameters, ~6.5 MB ONNX INT8
 
 Small enough to email. Small enough to embed in an app.
 
 Tweet 5 (The Deployment):
-Deploy in 60 seconds:
+Deploy in minutes:
 pip install nanoforecast
 python train_from_csv.py --csv your_data.csv
 # Done.
@@ -234,14 +256,14 @@ Unique feature: streaming inference.
 
 Every other model reprocesses your entire history. Ours remembers.
 
-Feed it one value, get an updated forecast in <1ms.
+Feed it one value, get an updated forecast immediately (O(1) update).
 
 No other time series model does this.
 
 Tweet 7 (The Lesson):
-The surprising part? We improved accuracy 51% without adding a single parameter.
+The surprising part? We improved MASE 3.282 → 1.752 (−46.6%) without adding a single parameter.
 
-We just fixed 3 training bugs that were silently destroying performance.
+We fixed 3 silent training-pipeline issues that were degrading performance.
 
 The lesson: before building bigger models, fix the pipeline you have.
 
@@ -258,14 +280,14 @@ If this matters to you:
 2. Try the demo
 3. Tell a founder who needs AI but can't afford GPU clusters
 
-The future of AI isn't bigger models. It's smarter deployment.
+The future of AI isn't just bigger models. It's smarter training.
 
 Tweet 10 (The Question):
 Question for ML researchers:
 
-How many of your models are performing 50% worse than they should because of silent training bugs?
+How many of your models are performing 30–50% worse than they should because of silent training-pipeline issues?
 
-We found 3. You probably have more.
+We found 3. You probably have some too.
 ```
 
 ---
@@ -274,9 +296,9 @@ We found 3. You probably have more.
 
 **The narrative arc:**
 1. **Status quo**: AI is getting bigger, more expensive, more centralized
-2. **Inciting incident**: Two developers ask "what if we go smaller?"
-3. **Rising action**: Build 8.3M param model, train on laptop
-4. **Climax**: Model beats Google's on 2 datasets, costs $0.12 to train
+2. **Inciting incident**: A solo developer asks "what if we go smaller?"
+3. **Rising action**: Build 6.5M param model, train on a free Colab GPU
+4. **Climax**: Model beats Google's TimesFM on all 3 ETT benchmarks, 31× smaller
 5. **Resolution**: Deploy on $35 Raspberry Pi, anyone can use it
 
 **The deeper story:**
@@ -285,22 +307,26 @@ This isn't about one model. It's about a **shift in how AI is built and deployed
 The old paradigm: bigger models, more compute, centralized data centers
 The new paradigm: smaller models, smarter training, edge deployment
 
-NanoForecast is proof that the new paradigm works.
+NanoForecast is evidence that the new paradigm works.
 
 **The quote for journalists:**
-> "Everyone is racing to build the biggest AI model. We proved you can compete with a model that fits in your pocket. The future of AI isn't about scale — it's about accessibility."
+> "Everyone is racing to build the biggest AI model. We proved you can compete — and win on three benchmarks — with a model 31× smaller. The future of AI isn't only about scale; it's about accessibility."
 
 ---
 
 ## What NOT to Say
 
-❌ "We beat Google" (we didn't beat them overall, we beat them on 2 datasets)
+❌ "We beat Google" (we didn't beat them overall — it's 3-3 on our 6 benchmarks)
+❌ "Beats TimesFM on electricity/traffic" (TimesFM wins those)
 ❌ "SOTA" (we're not state-of-the-art overall)
 ❌ "Revolutionary architecture" (architecture is unchanged)
-❌ "Better than TimesFM" (only on 2 of 6 datasets)
+❌ "8.3M params" (verified count is 6.5M)
+❌ "51% / MASE 1.326 / 2.73" (internal-protocol numbers — not comparable)
+❌ "24×/25× smaller" (correct ratio is 31×)
+❌ "45ms on Pi / <1ms streaming / $0.12" (latency and cost not benchmarked — don't fabricate)
 
-✅ "Competitive with Google at 1/25th the size"
-✅ "Beats PatchTST on electricity"
-✅ "Best-in-class on traffic"
-✅ "51% improvement from training fixes"
-✅ "Trains on a laptop for $0.12"
+✅ "Competitive with Google at 1/31st the size"
+✅ "Beats TimesFM on all three ETT benchmarks (standard protocol)"
+✅ "Beats PatchTST on the same three ETT datasets"
+✅ "46.6% improvement from training pipeline fixes (verified ablation)"
+✅ "Trains on a free Colab T4 in ~12 hours"

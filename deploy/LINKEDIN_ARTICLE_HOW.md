@@ -18,23 +18,23 @@ We went the other way.
 
 We designed a model from scratch that was never supposed to be big. No LLM backbone. No tokenizer. No decoder stack pretending it's a language model when all we want it to do is predict tomorrow's numbers.
 
-**NanoForecast is 8.3 million parameters.**
+**NanoForecast is 6.5 million parameters.**
 
 Google's TimesFM is 200 million. Amazon's Chronos-T5 is 710 million.
 
-And on two major benchmarks — electricity and traffic — our 8.3M model *beats* Google's 200M one.
+And on all three ETT benchmarks — ETTh1, ETTh2, ETTm1 — our 6.5M model *beats* Google's 200M one under an identical standard protocol.
 
 Not "comes close." Beats. Here's the actual table:
 
-| Model | Params | Electricity MASE | Traffic MASE |
-|---|---|---|---|
-| NanoForecast v0.5 | **8.3M** | **0.709** | **0.535** |
-| TimesFM (Google) | 200M | 0.89 | 0.62 |
-| PatchTST | 15M+ | 1.349 | — |
+| Model | Params | ETTh1 MASE | ETTh2 MASE | ETTm1 MASE |
+|---|---|---|---|---|
+| NanoForecast v0.5 | **6.5M** | **0.685** | **1.109** | **0.289** |
+| TimesFM (Google) | 200M | 0.705 | 1.360 | 0.545 |
+| PatchTST | 15M+ | 0.781 | 1.467 | 0.488 |
 
-We also beat PatchTST — a model designed specifically for the forecasting task, and a name you've probably seen in every time-series paper since 2023 — on electricity.
+We also beat PatchTST — a model designed specifically for the forecasting task, and a name you've probably seen in every time-series paper since 2023 — on the same three ETT datasets.
 
-And traffic? Out of every model we evaluated — including models 86x our size — nobody scored better.
+To be fair about it: TimesFM and PatchTST win on exchange_rate, electricity, and traffic. We're not beating them everywhere. But a 6.5M model beating a 200M model on three benchmarks — that's the story.
 
 ---
 
@@ -58,9 +58,9 @@ Our architecture, in plain words:
 
 The result? A model that fits in the palm of your hand:
 
-- **8.3M parameters** — that's a sheet of paper compared to TimesFM's book
-- **24x smaller than TimesFM, 86x smaller than Chronos-T5**
-- **45ms inference** on a **$35 Raspberry Pi 4** — no cloud, no GPU, no API bill
+- **6.5M parameters** — that's a sheet of paper compared to TimesFM's book
+- **31x smaller than TimesFM, 109x smaller than Chronos-T5**
+- **Runs on a $35 Raspberry Pi 4** — no cloud, no GPU, no API bill
 - **Trains in ~12 hours on a single T4-class GPU (Google Colab)**
 
 ---
@@ -69,19 +69,19 @@ The result? A model that fits in the palm of your hand:
 
 Here's the part that made us rethink everything.
 
-Between v0.3 and v0.5, we did **not change a single layer** of the architecture. Same LongConv + DeltaNet hybrid. Same gated router. Same MLP blocks. Same 8.3M parameters.
+Between v0.3 and v0.5, we did **not change a single layer** of the architecture. Same LongConv + DeltaNet hybrid. Same gated router. Same MLP blocks. Same 6.5M parameters.
 
-And we still improved MASE from 2.73 → 1.326.
+And we still improved MASE from 3.282 → 1.752 (standard protocol).
 
-**A 51% improvement. From training pipeline fixes alone.**
+**A 46.6% improvement. From training pipeline fixes alone.**
 
-Three bugs, essentially:
+Three fixes, essentially:
 
-1. **The loss was being computed on the wrong scope** — the model was being graded on parts of the forecast that didn't matter while the important parts were underweighted.
-2. **A tensor shape misalignment** in the multi-task learning was quietly sabotaging the quantile and anomaly heads.
-3. **The mix of real and synthetic training data was out of balance** — too much of the synthetic stuff was teaching the model to be smooth and boring.
+1. **Loss-scope handling** — the multi-task loss was weighted and scoped incorrectly (including a stray "horizon" key that always activated the multi-horizon loss path even when disabled).
+2. **Tensor shape alignment** — the quantile-loss path compared tensors of mismatched shapes, quietly sabotaging the quantile and anomaly heads.
+3. **Augmentation coverage** — broader augmentation (jitter, scaling, shifts, masking, reversal) applied uniformly to real and synthetic records.
 
-Fix those three things, don't touch the model, and watch it get 51% better.
+Fix those three things, don't touch the model, and watch it get 46.6% better.
 
 That's the quiet lesson of this project: **in 2026, the biggest wins in applied ML aren't new architectures — they're fixing the pipeline.** The architecture was already good. We were grading it wrong.
 
@@ -93,13 +93,13 @@ Two questions decide whether an ML model ever ships: *how accurate is it?* and *
 
 Benchmark tables only ever answer the first one. So here's the second, answered honestly:
 
-- **Training:** ~12 hours on a T4-class GPU (Google Colab) ≈ **$0.12** (Colab T4)
-- **Inference:** **45ms** on a **$35 Raspberry Pi 4**
-- **Deployment:** ONNX (FP32 + INT8), FastAPI, Docker, browser — or literally no server at all
+- **Training:** ~12 hours on a free T4-class GPU (Google Colab)
+- **Inference:** runs on a **$35 Raspberry Pi 4** (CPU/ARM, no GPU)
+- **Deployment:** ONNX (~6.5 MB INT8), FastAPI, Docker, browser — or literally no server at all
 
 For sensor networks, retail shelves, energy meters, or any place with thousands of time series and no GPU budget — edge forecasting just stopped being a compromise.
 
-And yes, to be fair about it: we're not beating TimesFM *everywhere*. On some datasets their 200M parameters do win. Scale still means something. But the story of this project is that **model scale alone doesn't decide benchmarks — and it certainly doesn't decide deployment.**
+And yes, to be fair about it: we're not beating TimesFM *everywhere*. On exchange_rate, electricity, and traffic their 200M parameters do win. Scale still means something. But the story of this project is that **model scale alone doesn't decide benchmarks — and it certainly doesn't decide deployment.**
 
 ---
 
@@ -114,4 +114,4 @@ Ours is small because it was born that way — designed for one job, trained pro
 The model, weights, Colab notebook, and paper are all open source:
 **https://huggingface.co/eulogik/nanoforecast-v05**
 
-*More details in the next post of this series — including the story behind the three bugs that were silently costing us 51%.*
+*More details in the next post of this series — including the story behind the three pipeline fixes that were silently costing us 46.6%.*
