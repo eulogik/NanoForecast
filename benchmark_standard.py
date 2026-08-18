@@ -281,13 +281,18 @@ def run_model(model, datasets: List[str], batch_size: int) -> Dict:
                     denom = (np.abs(target) + np.abs(fc[i])) / 2.0
                     m = denom > 1e-5
                     smape = float(100 * np.mean(np.abs(target[m] - fc[i][m]) / denom[m])) if m.any() else 0.0
-                    crps = 0.0
                     if q is not None:
+                        # probabilistic model: empirical CRPS from quantiles
                         levels = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
+                        crps = 0.0
                         for k, ql in enumerate(levels):
                             d = target - q[i][k]
                             crps += float(np.mean(np.maximum(ql * d, (ql - 1.0) * d)))
                         crps = 2.0 * crps / len(levels)
+                    else:
+                        # deterministic point forecast: CRPS of a Dirac delta
+                        # at the forecast equals the absolute error
+                        crps = mae
                     all_windows.append({"mase": mae / scale, "mae": mae, "mse": mse,
                                         "smape": smape, "crps": crps})
                     n_windows += 1
