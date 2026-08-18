@@ -12,7 +12,7 @@ for every model under the identical protocol.
 - TimesFM and PatchTST win exchange_rate, electricity, traffic — never claim a blanket win
 - v0.3 → v0.5: standard-protocol MASE 3.282 → 1.752 (−46.6%), zero architecture changes
 - Trained ~12h on a free Colab T4 (checkpoint wall time 43,750s)
-- ONNX: ~13 MB FP16 / ~6.5 MB INT8
+- ONNX: ~27.9 MB FP32 / ~9.2 MB INT8
 
 ---
 
@@ -42,14 +42,14 @@ for every model under the identical protocol.
 
 **For: Product Hunt, LinkedIn, startup founders**
 
-> Most AI models never make it past a Jupyter notebook. This one trains on your laptop, exports to ~6.5 MB ONNX, and runs on a $35 computer.
+> Most AI models never make it past a Jupyter notebook. This one trains on your laptop, exports to ~9.2 MB ONNX, and runs on a $35 computer.
 
 **Proof points:**
 - `pip install nanoforecast` — works like any Python package
 - Train on your CSV: `train_from_csv.py --csv your_data.csv`
-- ONNX export: ~6.5 MB INT8
+- ONNX export: ~9.2 MB INT8
 - Docker: ARM/x86 multi-arch
-- Streaming: O(1) update per observation (DeltaNet RNN state)
+- Streaming: stateful — memory preserved across calls (DeltaNet RNN state)
 
 **Why it works:** Developers are tired of AI that needs a PhD and a GPU cluster to deploy.
 
@@ -97,7 +97,7 @@ for every model under the identical protocol.
 - Training cost: one free Colab T4 session (~12 hours)
 - Hardware cost: $35 (Raspberry Pi) vs $10,000+ (GPU server)
 - Inference cost: near-zero (runs on CPU)
-- Model size: ~6.5 MB ONNX INT8
+- Model size: ~9.2 MB ONNX INT8
 
 **Why it works:** Cost efficiency is a universal story.
 
@@ -128,7 +128,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **Proof points:**
 - DeltaNet maintains recurrent state
-- O(1) streaming update per observation
+- Stateful streaming — memory preserved across calls
 - No other TS model does this
 - Perfect for IoT sensors, live dashboards, financial feeds
 
@@ -144,7 +144,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **Proof points:**
 - Runs on Raspberry Pi (no internet needed)
-- ~6.5 MB ONNX INT8 (works on slow connections)
+- ~9.2 MB ONNX INT8 (works on slow connections)
 - Trains on local data (no cloud required)
 - Apache 2.0 (free forever)
 
@@ -239,7 +239,7 @@ Model size comparison:
 • TimesFM: 200M parameters, gigabytes
 • Chronos: 8M–710M parameters, gigabytes
 • PatchTST: 15M+ parameters
-• NanoForecast: 6.5M parameters, ~6.5 MB ONNX INT8
+• NanoForecast: 6.5M parameters, ~9.2 MB ONNX INT8
 
 Small enough to email. Small enough to embed in an app.
 
@@ -256,7 +256,7 @@ Unique feature: streaming inference.
 
 Every other model reprocesses your entire history. Ours remembers.
 
-Feed it one value, get an updated forecast immediately (O(1) update).
+Feed it one value, get an updated forecast (one forward pass, memory preserved).
 
 No other time series model does this.
 
@@ -323,7 +323,7 @@ NanoForecast is evidence that the new paradigm works.
 ❌ "8.3M params" (verified count is 6.5M)
 ❌ "51% / MASE 1.326 / 2.73" (internal-protocol numbers — not comparable)
 ❌ "24×/25× smaller" (correct ratio is 31×)
-❌ "45ms on Pi / <1ms streaming / $0.12" (latency and cost not benchmarked — don't fabricate)
+❌ "45ms on Pi / <1ms streaming / $0.12" (Pi latency and cost not benchmarked; measured on Apple M4 CPU: 140 ms PyTorch FP32, 31 ms ONNX FP32 — streaming update costs one forward pass, 121 ms)
 
 ✅ "Competitive with Google at 1/31st the size"
 ✅ "Beats TimesFM on all three ETT benchmarks (standard protocol)"

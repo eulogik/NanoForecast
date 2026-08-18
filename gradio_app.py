@@ -1,4 +1,4 @@
-"""Gradio Space for NanoForecast — try the world's most deployable TS model.
+"""Gradio Space for NanoForecast v0.5 — try the world's most deployable TS model.
 
 Deploy this on Hugging Face Spaces:
 1. Create a new Space at https://huggingface.co/new-space
@@ -22,11 +22,11 @@ import plotly.graph_objects as go
 from nanoforecast import NanoForecast
 
 # ---------------------------------------------------------------------------
-# Configuration — change these as needed
+# Configuration — v0.5 model
 # ---------------------------------------------------------------------------
-MODEL_REPO = "eulogik/nanoforecast-500k"  # public repo on HF Hub
-DEFAULT_CONTEXT = 256
-DEFAULT_HORIZON = 48
+MODEL_REPO = "eulogik/nanoforecast-v05"  # v0.5 — 6.5M params, standard-protocol MASE 1.752
+DEFAULT_CONTEXT = 512
+DEFAULT_HORIZON = 96
 DEFAULT_FREQ = 1  # hourly
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ def build_plot(context_vals, forecast_vals, quantile_vals, horizon, target_vals=
         ))
 
     fig.update_layout(
-        title="NanoForecast — Forecast with Prediction Intervals",
+        title="NanoForecast v0.5 — Forecast with Prediction Intervals",
         xaxis_title="Time step",
         yaxis_title="Value",
         hovermode="x unified",
@@ -192,11 +192,12 @@ def predict_from_csv(
     })
 
     summary = (
-        f"**Model:** {MODEL_REPO}  \n"
+        f"**Model:** {MODEL_REPO} (v0.5)  \n"
+        f"**MASE:** 1.752 overall (standard protocol, H=48)  \n"
         f"**Context:** {len(series)} timesteps (using last {result['context_length']})  \n"
         f"**Horizon:** {horizon} steps  \n"
         f"**Frequency:** {freq_choice}  \n"
-        f"**Checkpoint:** ~1.6M params, 6.4 MB  \n"
+        f"**Params:** 6.5M (~26 MB)  \n"
         f"**Built by:** [Eulogik](https://eulogik.com)  \n"
     )
 
@@ -212,16 +213,19 @@ css = """
 h1 { text-align: center; }
 """
 
-with gr.Blocks(css=css, title="NanoForecast") as demo:
+with gr.Blocks(css=css, title="NanoForecast v0.5") as demo:
     gr.Markdown(
         """
-        # 🔮 NanoForecast — Deployable Time Series Forecasting
+        # 🔮 NanoForecast v0.5 — Deployable Time Series Forecasting
 
         Upload your CSV or use an example. The **smallest deployable time series model on the Hub**
-        (~1.6M params, runs on a Raspberry Pi, exports to 1.4 MB ONNX).
+        (6.5M params, runs on a Raspberry Pi, exports to ONNX).
+
+        **v0.5:** MASE 1.752 overall (standard protocol) — 46.6% better than v0.3 with zero architecture changes.
 
         [GitHub](https://github.com/eulogik/NanoForecast) ·
-        [Model on HF](https://huggingface.co/eulogik/nanoforecast-500k) ·
+        [Model on HF](https://huggingface.co/eulogik/nanoforecast-v05) ·
+        [Benchmark Charts](https://huggingface.co/eulogik/nanoforecast-v05) ·
         [Built by Eulogik](https://eulogik.com)
         """
     )
@@ -266,21 +270,31 @@ with gr.Blocks(css=css, title="NanoForecast") as demo:
     gr.Markdown(
         """
         ---
+        ### 📊 Benchmark Results (v0.5, standard protocol)
+        | Dataset | MASE | TimesFM (200M) | PatchTST (15M+) |
+        |---|---|---|---|
+        | ETTh1 | **0.685** | 0.705 | 0.781 |
+        | ETTh2 | **1.109** | 1.360 | 1.467 |
+        | ETTm1 | **0.289** | 0.545 | 0.488 |
+        | Exchange Rate | 4.418 | **4.383** | 3.861 |
+        | Electricity | 2.093 | **0.923** | 1.347 |
+        | Traffic | 1.915 | **0.765** | 1.379 |
+
         ### 📥 Download options
         Once you have a forecast, you can export the model to ONNX for production:
         ```bash
         python3 -m nanoforecast.export.onnx_export \\
-            --checkpoint checkpoints/nanoforecast-onnx \\
+            --checkpoint checkpoints/nanoforecast-v05 \\
             --output nanoforecast.onnx
         ```
         Or deploy instantly with our [FastAPI server](https://github.com/eulogik/NanoForecast#deploy).
 
-        ### ⚡ Why NanoForecast?
-        - **Tiny**: 200K–1.6M params, 1.4 MB INT8 quantized
-        - **Fast**: <50ms inference on CPU, 12ms on edge hardware
+        ### ⚡ Why NanoForecast v0.5?
+        - **Tiny**: 6.5M params, ~26 MB (ONNX INT8 ~9.2 MB)
         - **Deployable**: ONNX → browser / Lambda / Raspberry Pi / iOS
         - **Streaming**: Stateful DeltaNet — feed one value at a time
         - **Complete**: Point forecast + intervals + decomposition in one pass
+        - **Accurate**: MASE 1.752 overall (standard protocol); beats TimesFM on all 3 ETT benchmarks
         """
     )
 

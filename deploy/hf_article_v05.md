@@ -81,7 +81,7 @@ result = model.predict(context, horizon=48, freq=1)
 |:---|:---|
 | CPU (laptop) | Native PyTorch inference |
 | Raspberry Pi (ARM) | Designed for CPU/ARM inference |
-| ONNX (browser) | ~13 MB FP16 / ~6.5 MB INT8 at 6.5M params |
+| ONNX (browser) | ~27.9 MB FP32 / ~9.2 MB INT8 at 6.5M params |
 | FastAPI (server) | Docker-ready |
 
 ### Streaming inference (unique to NanoForecast)

@@ -5,7 +5,7 @@
 NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 - Train on a MacBook Air in 20 minutes (no GPU required)
 - Run on a Raspberry Pi / browser / Lambda / phone
-- ONNX export + INT8 quantization ≈ 6.5 MB at 6.5M params
+- ONNX export + INT8 quantization ≈ 9.2 MB at 6.5M params
 - Full pipeline: `pip install` → `predict()` → `deploy` in one repo
 
 **Target markets:**
@@ -234,7 +234,7 @@ Infra lessons (from the last chapter of the previous session):
 - Deploy with FastAPI or ONNX.js
 
 **For HF Hub users:**
-- Smallest deployable TS model on the Hub (~6.5 MB INT8 at 6.5M params)
+- Smallest deployable TS model on the Hub (~9.2 MB INT8 at 6.5M params)
 - `from_pretrained` + `predict()` in 2 lines
 - Model card with honest benchmarks
 - Gradio Space with live demo
@@ -245,7 +245,7 @@ Infra lessons (from the last chapter of the previous session):
 
 **For edge/IoT developers:**
 - Raspberry Pi, Lambda, mobile, browser — it runs anywhere
-- 12ms inference even on a $15 board
+- CPU-only inference (140 ms full forecast on an Apple M4; Raspberry Pi feasible, not benchmarked)
 
 ## Accuracy — two protocols, one truth
 

@@ -45,7 +45,7 @@ Eulogik, Inc. \\
 
 % ==========================================================================
 \begin{abstract}
-We present NanoForecast v0.5, a lightweight time series forecasting model (6.5M parameters) that achieves competitive accuracy with models up to 109$\times$ larger through systematic training pipeline refinement. Retraining the unchanged v0.3 architecture with a corrected pipeline (loss-scope handling, tensor shape alignment, and expanded augmentation coverage) improves overall Mean Absolute Scaled Error by 46.6\% under a standard protocol (MASE 3.282 $\to$ 1.752), with zero architecture modifications and the same data and compute budget. Despite being 31$\times$ smaller than TimesFM (200M parameters), NanoForecast v0.5 outperforms it on all three ETT datasets (MASE 0.685/1.109/0.289 vs.\ 0.705/1.360/0.545) and comes within 1\% on exchange rate; TimesFM dominates on the high-cardinality electricity and traffic sets. Against PatchTST (15M+ parameters, official thuml configuration), NanoForecast wins on all three ETT sets. The model trains on a single cloud GPU (NVIDIA T4, Google Colab) in approximately 12 hours and runs on edge hardware (Raspberry Pi 4, \$35 USD) at 45ms inference latency. We release all code, pretrained checkpoints, and evaluation framework under Apache 2.0 at \url{https://github.com/eulogik/NanoForecast}.
+We present NanoForecast v0.5, a lightweight time series forecasting model (6.5M parameters) that achieves competitive accuracy with models up to 109$\times$ larger through systematic training pipeline refinement. Retraining the unchanged v0.3 architecture with a corrected pipeline (loss-scope handling, tensor shape alignment, and expanded augmentation coverage) improves overall Mean Absolute Scaled Error by 46.6\% under a standard protocol (MASE 3.282 $\to$ 1.752), with zero architecture modifications and the same data and compute budget. Despite being 31$\times$ smaller than TimesFM (200M parameters), NanoForecast v0.5 outperforms it on all three ETT datasets (MASE 0.685/1.109/0.289 vs.\ 0.705/1.360/0.545) and comes within 1\% on exchange rate; TimesFM dominates on the high-cardinality electricity and traffic sets. Against PatchTST (15M+ parameters, official thuml configuration), NanoForecast wins on all three ETT sets. The model trains on a single cloud GPU (NVIDIA T4, Google Colab) in approximately 12 hours and runs on edge hardware (Raspberry Pi 4, \$35 USD) without GPU requirements. We release all code, pretrained checkpoints, and evaluation framework under Apache 2.0 at \url{https://github.com/eulogik/NanoForecast}.
 \end{abstract}
 
 % ==========================================================================
@@ -67,7 +67,7 @@ Additionally, we show that a 6.5M parameter model can outperform models up to 10
 \item We identify and document three training pipeline issues---loss-scope handling, tensor shape alignment, and augmentation coverage---that silently degrade time series forecasting accuracy, and quantify their joint effect on released checkpoints under a standard protocol.
 \item We achieve a 46.6\% MASE improvement (3.282 $\to$ 1.752) through training pipeline refinement alone, with no architecture modifications.
 \item We demonstrate that a 6.5M parameter model can outperform models up to 109$\times$ larger on specific benchmarks: outperforming TimesFM (200M parameters) on the three ETT datasets (ETTh1 MASE 0.685 vs.\ 0.705, ETTh2 1.109 vs.\ 1.360, ETTm1 0.289 vs.\ 0.545) and coming within 1\% of TimesFM on exchange rate (4.418 vs.\ 4.383), while outperforming PatchTST (15M+ parameters) on all three ETT sets.
-\item We provide a complete production deployment pipeline including ONNX export (~13~MB FP16, ~6.5~MB INT8), Docker containers, and streaming inference, enabling training on a single cloud GPU (T4, Google Colab) and inference on edge hardware (\$35 USD).
+\item We provide a complete production deployment pipeline including ONNX export (27.9\,MB FP32, 9.2\,MB INT8), Docker containers, and stateful streaming inference, enabling training on a single cloud GPU (T4, Google Colab) and inference on edge hardware (\$35 USD).
 \end{enumerate}
 
 % ==========================================================================
@@ -135,7 +135,7 @@ Each of $L=8$ layers contains three components blended by a learned gated router
 h_t = \delta \cdot h_{t-1} + (1-\delta) \cdot W x_t
 \label{eq:deltanet}
 \end{equation}
-where $\delta \in [0,1]$ is a learnable gating parameter. The recurrent state enables $O(1)$ streaming inference.
+where $\delta \in [0,1]$ is a learnable gating parameter. The recurrent state enables stateful streaming inference, where the model's memory persists across calls.
 \item \textbf{Gated MLP}: A SwiGLU-activated feedforward network~\cite{swiglu} with dimensionality $4d_{\text{model}}$.
 \end{itemize}
 
@@ -166,7 +166,7 @@ The DeltaNet maintains a recurrent state $\mathbf{s} = (h_L, \delta)$ across \te
 \mathbf{s}_{t+1}, \hat{\mathbf{y}}_{t+1} = f_{\text{predict}}(x_{t+1}, \mathbf{s}_t)
 \label{eq:streaming}
 \end{equation}
-This is $O(1)$ per observation compared to $O(C/P)$ for full-context reprocessing (patching reduces the effective token length to $L = C/P$), yielding a $C/P$-fold speedup (64$\times$ at our default $C=512$, $P=8$).
+State preservation means the model does not require the full history to be re-supplied across calls, unlike window-based approaches that must reprocess the complete context for every new forecast. A streaming update costs one forward pass at context length $C$ (measured 121\,ms vs.\ 140\,ms for full inference on Apple M4 CPU, Table~\ref{tab:latency}).
 
 % ==========================================================================
 \section{Training Pipeline Analysis}
@@ -364,16 +364,16 @@ Table~\ref{tab:ablation} shows the end-to-end effect of the three remediations a
 
 \begin{table}[h]
 \centering
-\caption{Inference latency across deployment targets.}
+\caption{Measured inference latency (Apple M4 CPU, batch 1, context 512, horizon 48; mean of 20 runs).}
 \label{tab:latency}
 \begin{tabular}{lcc}
 \toprule
-Hardware & Latency & Configuration \\
+Configuration & Latency & Notes \\
 \midrule
-Apple M4 (CPU)    & 8\,ms & PyTorch, FP32 \\
-Raspberry Pi 4    & 45\,ms & PyTorch, FP32 \\
-Raspberry Pi 4    & 12\,ms & ONNX Runtime, INT8 quantized \\
-Streaming update  & $<$1\,ms & DeltaNet stateful update \\
+PyTorch FP32, full inference    & 140\,ms & \texttt{predict()}, 8 threads \\
+ONNX Runtime FP32               & 31\,ms  & \texttt{onnxruntime}, CPU \\
+ONNX Runtime INT8               & 82\,ms  & dynamic quantization \\
+Streaming update                & 121\,ms & \texttt{predict\_step()}, stateful \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -416,15 +416,15 @@ NanoForecast provides an end-to-end deployment pipeline designed for production 
 \begin{itemize}
 \item \textbf{Installation}: \texttt{pip install nanoforecast} from the GitHub repository (Apache 2.0).\footnote{The package is distributed via \url{https://github.com/eulogik/NanoForecast}; a PyPI release is planned.}
 \item \textbf{Custom training}: \texttt{train\_from\_csv.py --csv data.csv --target col --horizon H} trains on user-provided data.
-\item \textbf{Model export}: ONNX export produces a ~13\,MB model in FP16 (~6.5\,MB with INT8 quantization).
-\item \textbf{REST API}: FastAPI server with sub-50\,ms latency on modern CPUs.
+\item \textbf{Model export}: ONNX export produces a 27.9\,MB FP32 model (9.2\,MB with INT8 quantization).
+\item \textbf{REST API}: FastAPI server with measured 31\,ms ONNX Runtime CPU latency (Apple M4).
 \item \textbf{Containerization}: Multi-architecture Docker images (ARM64/x86\_64).
 \item \textbf{Interactive demo}: Gradio Space at \url{https://huggingface.co/spaces/eulogik/nanoforecast}.
 \end{itemize}
 
 \subsection{Streaming Inference}
 
-The DeltaNet recurrent state enables a mode unavailable in other time series models: stateful streaming inference. The model processes one observation at a time without reprocessing history:
+The DeltaNet recurrent state enables a mode unavailable in other time series models: stateful streaming inference. The model consumes new observations one at a time while preserving its recurrent memory across calls (no need to re-feed history), at the cost of one forward pass per update:
 
 \begin{algorithm}[h]
 \caption{Streaming inference loop.}
@@ -433,13 +433,13 @@ The DeltaNet recurrent state enables a mode unavailable in other time series mod
 \Require Model $f_\theta$, initial state $\mathbf{s}_0$, observation stream $\{x_t\}_{t=1}^\infty$
 \For{each new observation $x_t$}
     \State $\hat{\mathbf{y}}_t, \mathbf{s}_t \gets f_\theta.\text{predict\_step}(x_t, \mathbf{s}_{t-1})$
-    \Comment{$O(1)$ per observation}
+    \Comment{one forward pass, state preserved}
     \State \textbf{emit} $\hat{\mathbf{y}}_t$
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
-This yields $O(1)$ per-timestep cost compared to $O(C/P)$ for window-based approaches---a 64$\times$ reduction in per-observation processing at context length 512 and patch size 8.
+State preservation is the differentiator: the DeltaNet state carries all past information across calls, so the model does not require the full history to be re-supplied, unlike window-based approaches that must reprocess the complete context for every new forecast. Measured on Apple M4 CPU, a streaming update costs 121\,ms (vs.\ 140\,ms for full inference), reflecting a forward pass at context length 512.
 
 % ==========================================================================
 \section{Discussion}
@@ -475,7 +475,7 @@ We acknowledge several limitations:
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented NanoForecast v0.5, demonstrating that systematic training pipeline refinement can yield a 46.6\% MASE improvement (standard-protocol 3.282 $\to$ 1.752) without architecture modifications. The model, at 6.5M parameters, outperforms TimesFM (200M) on all three ETT datasets, comes within 1\% of it on exchange rate, and outperforms PatchTST (15M+) on all three ETT sets. Training takes approximately 12 hours on a single T4-class GPU, and inference runs on a \$35 Raspberry Pi at 45ms latency.
+We presented NanoForecast v0.5, demonstrating that systematic training pipeline refinement can yield a 46.6\% MASE improvement (standard-protocol 3.282 $\to$ 1.752) without architecture modifications. The model, at 6.5M parameters, outperforms TimesFM (200M) on all three ETT datasets, comes within 1\% of it on exchange rate, and outperforms PatchTST (15M+) on all three ETT sets. Training takes approximately 12 hours on a single T4-class GPU, and inference runs without GPU requirements on hardware such as a \$35 Raspberry Pi.
 
 The broader methodological implication is that training pipeline correctness deserves greater attention in time series research. Silent issues---loss scope, shape alignment, augmentation coverage---can degrade accuracy by nearly 50\% while remaining invisible to standard training diagnostics. Before pursuing architectural innovation, practitioners should verify that their existing pipeline is free of such issues.
 

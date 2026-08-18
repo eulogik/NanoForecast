@@ -95,7 +95,7 @@ Benchmark tables only ever answer the first one. So here's the second, answered 
 
 - **Training:** ~12 hours on a free T4-class GPU (Google Colab)
 - **Inference:** runs on a **$35 Raspberry Pi 4** (CPU/ARM, no GPU)
-- **Deployment:** ONNX (~6.5 MB INT8), FastAPI, Docker, browser — or literally no server at all
+- **Deployment:** ONNX (~9.2 MB INT8), FastAPI, Docker, browser — or literally no server at all
 
 For sensor networks, retail shelves, energy meters, or any place with thousands of time series and no GPU budget — edge forecasting just stopped being a compromise.
 

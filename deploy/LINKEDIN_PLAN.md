@@ -92,7 +92,7 @@ What's your take: distilled large models or purpose-built small ones?
 This is the part I like best — a $100 device running a model that beat a 200M-parameter model on all three ETT benchmarks.
 
 NanoForecast v0.5 running on a Raspberry Pi:
-- 6.5M parameters (~6.5 MB ONNX INT8)
+- 6.5M parameters (~9.2 MB ONNX INT8)
 - zero-shot forecasting, no fine-tuning
 - streaming updates per observation (DeltaNet RNN state)
 

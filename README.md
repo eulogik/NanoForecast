@@ -19,7 +19,7 @@ NanoForecast is the **world's most deployable time series foundation model** —
 - **Trains on your data in 2 minutes** — `python3 train_from_csv.py --csv sales.csv --target revenue`
 - **Streams forecasts online** — the only TS model where you can feed one value at a time
 - **Runs on a Raspberry Pi** (designed for ARM/CPU inference)
-- **Exports to ONNX** (~6.5 MB INT8 at 6.5M params — Edge/IoT/browser ready)
+- **Exports to ONNX** (~9.2 MB INT8 at 6.5M params — Edge/IoT/browser ready)
 - **Fully Apache 2.0** — no strings attached
 
 It's **not** a foundation model. It won't beat TimesFM on every benchmark — but it does win on all three ETT datasets (ETTh1/ETTh2/ETTm1) at 31× fewer parameters. What it does is **actually ship to production**.

@@ -55,7 +55,7 @@ TimesFM still wins on exchange_rate, electricity, and traffic. We're not claimin
 The model also:
 • Trains in ~12 hours on a single T4-class GPU (Google Colab)
 • Runs on a $35 Raspberry Pi
-• Exports to ~6.5 MB ONNX INT8
+• Exports to ~9.2 MB ONNX INT8
 • Streams forecasts one observation at a time (DeltaNet RNN state)
 
 And the surprising part: v0.5 improved MASE 3.282 → 1.752 (−46.6%) over v0.3 with zero architecture changes — purely from training-pipeline fixes.
@@ -77,16 +77,16 @@ Paper: https://arxiv.org/abs/XXXX.XXXXX
 **Precise claims**:
 - `pip install nanoforecast` — standard Python package
 - `train_from_csv.py --csv your_data.csv --target sales` — train on custom data
-- ONNX export: ~13 MB FP16 (~6.5 MB INT8)
+- ONNX export: ~27.9 MB FP32 (~9.2 MB INT8)
 - Raspberry Pi: designed for CPU/ARM inference (no GPU needed)
-- Streaming: O(1) update per new observation (DeltaNet RNN state)
+- Streaming: stateful DeltaNet — memory preserved across calls, no history re-feed
 - Docker: ARM/x86 multi-arch images
 
 **Post template** (Product Hunt first comment):
 ```
 Hi! I'm Gautam, creator of NanoForecast.
 
-Most AI models never make it past a Jupyter notebook. This one trains on a free Colab T4, exports to ~6.5 MB ONNX INT8, and runs on a $35 Raspberry Pi.
+Most AI models never make it past a Jupyter notebook. This one trains on a free Colab T4, exports to ~9.2 MB ONNX INT8, and runs on a $35 Raspberry Pi.
 
 pip install → train on your CSV → export to ONNX → deploy.
 
@@ -175,13 +175,13 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 **Audience**: IoT developers, edge computing press, embedded systems community  
 **Headline**: "Forecasting on a $35 computer — no cloud, no GPU"
 
-**The story**: Edge AI typically means "a compressed version of a big model." NanoForecast is designed for edge from the ground up. 6.5M parameters, ~6.5 MB ONNX INT8, CPU/ARM inference. No cloud dependency. No GPU required. Streaming mode updates forecasts per observation via the DeltaNet RNN's recurrent state. The model that beats Google's TimesFM on all three ETT benchmarks runs entirely on a device that costs less than a dinner out.
+**The story**: Edge AI typically means "a compressed version of a big model." NanoForecast is designed for edge from the ground up. 6.5M parameters, ~9.2 MB ONNX INT8, CPU/ARM inference. No cloud dependency. No GPU required. Streaming mode updates forecasts per observation via the DeltaNet RNN's recurrent state. The model that beats Google's TimesFM on all three ETT benchmarks runs entirely on a device that costs less than a dinner out.
 
 **Precise claims**:
 - Hardware: Raspberry Pi 4 ($35)
-- Model size: ~13 MB FP16 (~6.5 MB INT8 ONNX)
+- Model size: ~27.9 MB FP32 (~9.2 MB INT8 ONNX)
 - Power: designed for ~5W-class devices
-- Streaming: O(1) update per new observation — no history reprocessing
+- Streaming: stateful DeltaNet — memory preserved across calls, no history re-feed
 
 ---
 
@@ -197,20 +197,20 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 - Inference hardware: Raspberry Pi 4 ($35)
 - No internet required after download
 - Apache 2.0 license: free forever
-- ~6.5 MB ONNX model: works on slow connections
+- ~9.2 MB ONNX model: works on slow connections
 
 ---
 
 ### 9. THE STREAMING ANGLE: "The only forecasting model that remembers what it's seen"
 
 **Audience**: Real-time analytics, financial data, sensor networks  
-**Headline**: "Streaming time series inference — without reprocessing history"
+**Headline**: "Streaming time series inference — stateful, no history re-feed"
 
 **The story**: Every other time series model reprocesses the entire history every time you ask for a forecast. NanoForecast's DeltaNet maintains state across calls. Feed it one value, get an updated forecast immediately. This enables real-time dashboards that update as data arrives, IoT sensor monitoring without history buffering, and financial forecasting at tick-level speed.
 
 **Precise claims**:
-- DeltaNet RNN: O(1) update per new observation
-- No full-context reprocessing needed
+- DeltaNet RNN: stateful — memory preserved across calls
+- No history re-feed needed across calls (one forward pass per update)
 - State serialization supported for long-running sessions
 
 ---
@@ -255,7 +255,7 @@ The surprising part: we improved MASE 3.282 → 1.752 (−46.6%) over v0.3 with 
 The model:
 • Trains in ~12 hours on a free Colab T4
 • Runs on a $35 Raspberry Pi
-• Exports to ~6.5 MB ONNX INT8
+• Exports to ~9.2 MB ONNX INT8
 • Streams forecasts one observation at a time
 
 Live demo: https://huggingface.co/spaces/eulogik/nanoforecast
@@ -303,10 +303,10 @@ Code: https://github.com/eulogik/NanoForecast
 ```
 If you've been looking for a time series model that actually deploys:
 
-• 6.5M parameters (~6.5 MB ONNX INT8)
+• 6.5M parameters (~9.2 MB ONNX INT8)
 • Trains on a free Colab T4 in ~12 hours
 • Runs on Raspberry Pi 4
-• Streaming: O(1) update per observation
+• Streaming: stateful — memory preserved across calls
 • pip install nanoforecast
 
 Beats Google's TimesFM (200M params) on ETTh1, ETTh2, ETTm1 (standard protocol).
@@ -343,7 +343,7 @@ Model size comparison:
 • TimesFM: 200M params
 • Chronos: 8M–710M params
 • PatchTST: 15M+ params
-• NanoForecast: 6.5M params (~6.5 MB ONNX INT8)
+• NanoForecast: 6.5M params (~9.2 MB ONNX INT8)
 
 Tweet 4:
 Training cost comparison:
@@ -483,7 +483,7 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 | "8.3M params" | Verified count is 6.5M |
 | "51% / MASE 1.326 / 2.73" | Internal-protocol numbers, not comparable |
 | "24×/25× smaller" | Correct ratio is 31× |
-| "45ms on Pi / 12ms ONNX / <1ms streaming" | Latency not benchmarked — don't fabricate |
+| "45ms on Pi / 12ms ONNX / <1ms streaming" | Fabricated — measured on Apple M4 CPU: 140 ms PyTorch FP32, 31 ms ONNX FP32, 121 ms streaming (one forward pass) |
 
 ---
 
@@ -499,7 +499,7 @@ Try the live demo: https://huggingface.co/spaces/eulogik/nanoforecast
 | TimesFM params (comparison) | 200M (31× larger) |
 | Training time | ~12 hours, free Colab T4 |
 | Inference hardware | Raspberry Pi 4 ($35) |
-| ONNX size | ~6.5 MB (INT8) / ~13 MB (FP16) |
+| ONNX size | ~9.2 MB (INT8) / ~27.9 MB (FP32) |
 | MASE overall (standard protocol) | 1.752 |
 | v0.3 → v0.5 improvement | −46.6% (3.282 → 1.752) |
 | Benchmark wins vs TimesFM | ETTh1, ETTh2, ETTm1 |

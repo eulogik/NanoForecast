@@ -239,7 +239,7 @@ docker build -t nanoforecast -f deploy/Dockerfile .
 docker run -p 8000:8000 nanoforecast
 ```
 
-### ONNX (~6.5 MB INT8 / ~13 MB FP16 — Edge / IoT / Browser)
+### ONNX (~9.2 MB INT8 / ~27.9 MB FP32 — Edge / IoT / Browser)
 
 ```bash
 pip install "nanoforecast[onnx]"

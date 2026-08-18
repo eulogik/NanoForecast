@@ -193,11 +193,11 @@ That's it. Your model is trained.
 Export to ONNX:
 python -m nanoforecast.export.onnx --checkpoint checkpoints/nanoforecast --output model.onnx
 
-About 13 megabytes standard, ~6.5 megabytes quantized.
+About 28 megabytes standard, ~9 megabytes quantized.
 
 **[Show Raspberry Pi]**
 
-This is a $35 Raspberry Pi 4. The model is designed for CPU and ARM inference — no GPU, no cloud, no API bill. And the streaming mode updates forecasts per observation via the DeltaNet's recurrent state, without reprocessing history.
+This is a $35 Raspberry Pi 4. The model is designed for CPU and ARM inference — no GPU, no cloud, no API bill. And the streaming mode updates forecasts per observation via the DeltaNet's recurrent state, which preserves memory across calls.
 
 **[Show Gradio demo]**
 
