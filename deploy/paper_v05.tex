@@ -35,7 +35,8 @@
 \author{Gautam Kishore \\
 Eulogik \\
 \texttt{gautam@eulogik.com} \\
-\url{https://eulogik.com}
+\url{https://github.com/eulogik/NanoForecast} \\
+\url{https://huggingface.co/eulogik/nanoforecast-v05}
 }
 
 % ---- begin ----
@@ -479,7 +480,29 @@ We presented NanoForecast v0.5, demonstrating that systematic training pipeline 
 
 The broader methodological implication is that training pipeline correctness deserves greater attention in time series research. Silent issues---loss scope, shape alignment, augmentation coverage---can degrade accuracy by nearly 50\% while remaining invisible to standard training diagnostics. Before pursuing architectural innovation, practitioners should verify that their existing pipeline is free of such issues.
 
-All code, models, and evaluation scripts are released under Apache 2.0 at \url{https://github.com/eulogik/NanoForecast}.
+\subsection{Future Work}
+
+We identify the following directions:
+
+\begin{enumerate}
+\item \textbf{High-cardinality datasets}: The model trails TimesFM on electricity and traffic. Scaling the shared trunk (more channels, longer context) with the same corrected pipeline is the most direct path to closing this gap while staying under 20M parameters.
+\item \textbf{More baselines under the identical protocol}: Evaluating additional foundation models (Chronos-T5-large, Moirai, Lag-Llama) under our standard protocol would strengthen the comparison; Chronos-T5-large was excluded here because inference was intractable on our hardware.
+\item \textbf{Horizon generalization}: The released checkpoints are trained for $H=48$; fine-tuning for other horizons and evaluating the streaming mode under drift would extend practical applicability.
+\item \textbf{Edge benchmarking}: Measure the exported ONNX models on target edge hardware (e.g., Raspberry Pi 4-class devices, microcontrollers) to quantify the streaming deployment envelope.
+\end{enumerate}
+
+\section*{Code and Data Availability}
+
+All code, pretrained checkpoints, and the evaluation framework are released under Apache 2.0:
+
+\begin{itemize}
+\item GitHub: \url{https://github.com/eulogik/NanoForecast}
+\item Model checkpoints (v0.3, v0.5): \url{https://huggingface.co/eulogik/nanoforecast-v05} and \url{https://huggingface.co/eulogik/nanoforecast-v03}
+\item Baseline checkpoints (PatchTST, TimesFM): \url{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}
+\item Standard-protocol results: \texttt{results/standard\_benchmark.json} in the GitHub repository (protocol string included in the file)
+\item Interactive demo: \url{https://huggingface.co/spaces/eulogik/nanoforecast}
+\item Training notebooks (Google Colab, free tier): \texttt{deploy/colab\_training\_v05.ipynb} in the repository
+\end{itemize}
 
 % ==========================================================================
 \section*{Acknowledgments}
