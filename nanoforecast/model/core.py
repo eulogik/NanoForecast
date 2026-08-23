@@ -30,7 +30,7 @@ class StreamingState:
 
 class NanoForecast(NanoForecastHubMixin, nn.Module):
     """
-    NanoForecast Model: The world's smallest time series foundation model.
+    NanoForecast Model: A tiny, deployable time series transformer.
     Integrates Robust scaling, Adaptive Patching, Resolution Prefixes,
     Gated sequence mixing blocks (Conv, RNN, MLP), and multi-task heads.
     """

@@ -1,6 +1,6 @@
 # 🔮 NanoForecast
 
-**World's most deployable time series transformer — 6.5M params, CPU inference, MASE 1.752**
+**The most deployable time series transformer we know of — 6.5M params, CPU inference, MASE 1.752**
 
 [![PyPI](https://img.shields.io/pypi/v/nanoforecast)](https://pypi.org/project/nanoforecast/)
 [![Downloads](https://img.shields.io/pypi/dm/nanoforecast)](https://pypi.org/project/nanoforecast/)
@@ -14,10 +14,10 @@
 [![Paper](https://img.shields.io/badge/📄%20Paper-LaTeX-lightgrey)](./deploy/paper_v05.tex)
 [![Eulogik](https://img.shields.io/badge/by-Eulogik-purple)](https://eulogik.com)
 
-NanoForecast is the **world's most deployable time series foundation model** — a tiny transformer for zero-shot forecasting, streaming inference, and edge deployment. At just 200K–6.5M parameters, it runs on CPU, Raspberry Pi, and in the browser via ONNX. Unlike large foundation models that require GPUs and terabytes of data, NanoForecast:
+NanoForecast is a **tiny, deployable time series transformer** for zero-shot forecasting, streaming inference, and edge deployment. At just 200K–6.5M parameters, it runs on CPU, Raspberry Pi, and in the browser via ONNX. Unlike large foundation models that require GPUs and terabytes of data, NanoForecast:
 
 - **Trains on your data in 2 minutes** — `python3 train_from_csv.py --csv sales.csv --target revenue`
-- **Streams forecasts online** — the only TS model where you can feed one value at a time
+- **Streams forecasts online** — feed one value at a time with state preserved across calls
 - **Runs on a Raspberry Pi** (designed for ARM/CPU inference)
 - **Exports to ONNX** (~9.2 MB INT8 at 6.5M params — Edge/IoT/browser ready)
 - **Fully Apache 2.0** — no strings attached
