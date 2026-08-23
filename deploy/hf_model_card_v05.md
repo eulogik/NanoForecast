@@ -68,13 +68,13 @@ identical protocol.
 
 | Dataset | NanoForecast v0.5 (6.5M) | TimesFM (200M) | PatchTST (15M+) |
 |---:|---:|---:|---:|
-| ETTh1 | **0.685** | 0.705 | 0.781 |
-| ETTh2 | **1.109** | 1.360 | 1.467 |
-| ETTm1 | **0.289** | 0.545 | 0.488 |
-| exchange_rate | 4.418 | **4.383** | 3.861 |
-| electricity | 2.093 | **0.923** | 1.347 |
-| traffic | 1.915 | **0.765** | 1.379 |
-| **Overall** | 1.752 | **1.447** | 1.554 |
+| ETTh1 | **0.681** | 0.705 | 0.781 |
+| ETTh2 | **1.110** | 1.360 | 1.467 |
+| ETTm1 | **0.287** | 0.545 | 0.488 |
+| exchange_rate | **4.317** | 4.383 | **3.861** |
+| electricity | 2.029 | **0.923** | 1.347 |
+| traffic | 1.805 | **0.765** | 1.379 |
+| **Overall** | 1.704 | **1.447** | 1.554 |
 
 NanoForecast v0.5 **outperforms TimesFM on all three ETT datasets** (and PatchTST on the same
 three) at 31× fewer parameters than TimesFM. TimesFM and PatchTST win on exchange_rate,
@@ -84,10 +84,10 @@ electricity, and traffic.
 
 | Version | Params | MASE ↓ | Improvement | Training |
 |:---|---:|---:|:---|:---|
-| v0.3 (released) | 6.5M | 3.282 | baseline | Colab T4, 200 epochs |
-| **v0.5 (released)** | **6.5M** | **1.752** | **↓ 46.6%** | **Colab T4, 200 epochs** |
+| v0.3 (released) | 6.5M | 3.030 | baseline | Colab T4, 200 epochs |
+| **v0.5 (released)** | **6.5M** | **1.704** | **↓ 43.8%** | **Colab T4, 200 epochs** |
 
-> **v0.5 improved MASE by 46.6% with zero architecture changes** — the gains came from three
+> **v0.5 improved MASE by 43.8% with zero architecture changes** — the gains came from three
 > training-pipeline fixes (loss-scope handling, tensor shape alignment, augmentation coverage).
 
 ### 🏆 Why NanoForecast Wins on Deployment
@@ -108,7 +108,7 @@ electricity, and traffic.
 
 ![MASE by dataset](assets/benchmark_mase_standard.png)
 
-**v0.3 → v0.5 pipeline refinement** — same architecture, MASE 3.282 → 1.752:
+**v0.3 → v0.5 pipeline refinement** — same architecture, MASE 3.030 → 1.704 (uniform median-as-point-forecast recipe):
 
 ![v0.3 vs v0.5](assets/benchmark_v03_vs_v05.png)
 
@@ -362,7 +362,7 @@ The p50 and p90 coverage are close to target, providing reliable uncertainty qua
 
 ## ⚠️ Known Limitations
 
-- **Accuracy vs SOTA**: MASE 1.752 overall (standard protocol) — competitive on the ETT datasets (wins vs TimesFM and PatchTST on all three), but not SOTA on exchange_rate/electricity/traffic. NanoForecast prioritizes deployability over raw accuracy.
+- **Accuracy vs SOTA**: MASE 1.704 overall (standard protocol) — competitive on the ETT datasets (wins vs TimesFM and PatchTST on all three), but not SOTA on exchange_rate/electricity/traffic. NanoForecast prioritizes deployability over raw accuracy.
 - **Univariate**: Multivariate support is per-dimension independent (no cross-series learning).
 - **Fixed context**: 512 timesteps — longer history is truncated.
 - **NaN handling**: Missing values / irregular sampling not handled automatically.

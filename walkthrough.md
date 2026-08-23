@@ -29,8 +29,8 @@ NanoForecast won't win on accuracy (yet). It wins on **deployability**:
 | 9 | **Streaming inference API** | ✅ Done | — | **Unique differentiator** |
 | 10 | **train_from_csv.py CLI** | ✅ Done | — | **Primary UX path** |
 | 11 | Mac Mini training: v0.2 checkpoint (Reverso recipe) | ✅ Done | — | MASE 3.45 (internal protocol) |
-| 12 | v0.3 Frequency-Aware Hybrid architecture | ✅ Done | — | MASE 3.282 (standard protocol) |
-| 13 | v0.5 Training fix: Pipeline/loss/augmentation | ✅ Done | — | **MASE 1.752 (46.6% better, standard)** |
+| 12 | v0.3 Frequency-Aware Hybrid architecture | ✅ Done | — | MASE 3.030 (standard protocol) |
+| 13 | v0.5 Training fix: Pipeline/loss/augmentation | ✅ Done | — | **MASE 1.704 (43.8% better, standard)** |
 | 14 | HF Model Card (SEO-optimized) | ✅ Done | — | Viral discovery |
 | 15 | HF Community Article | ✅ Done | — | Visibility |
 | 16 | Benchmark charts (ETTh1, Traffic) | ✅ Done | — | Proof of competitiveness |
@@ -116,7 +116,7 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 - **HF Model (v0.1)**: https://huggingface.co/eulogik/nanoforecast-200k — 676K params, Apache 2.0
 - **HF Model (v0.2)**: https://huggingface.co/eulogik/nanoforecast-500k — 1.6M params, Apache 2.0
 - **HF Model (v0.3)**: https://huggingface.co/eulogik/nanoforecast-v03 — 6.5M params, Apache 2.0
-- **HF Model (v0.5)**: https://huggingface.co/eulogik/nanoforecast-v05 — 6.5M params, Apache 2.0, **MASE 1.752 (standard protocol)**
+- **HF Model (v0.5)**: https://huggingface.co/eulogik/nanoforecast-v05 — 6.5M params, Apache 2.0, **MASE 1.704 (standard protocol)**
 - **HF Space**: https://eulogik-nanoforecast.hf.space — upload CSV, get forecast + intervals + plot
 - **HF Model Card**: https://huggingface.co/eulogik/nanoforecast-v05 — SEO-optimized, viral-ready
 - **HF Community Article**: https://huggingface.co/eulogik/nanoforecast-v05/discussions/1
@@ -124,7 +124,7 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 
 ### v0.5 Training (completed — Colab T4 GPU, 12h, 200 epochs)
 
-**Key insight**: v0.5's 46.6% MASE improvement came from fixing the training pipeline (loss-scope handling, tensor shape alignment, augmentation coverage) — **zero architecture changes** vs v0.3.
+**Key insight**: v0.5's 43.8% MASE improvement came from fixing the training pipeline (loss-scope handling, tensor shape alignment, augmentation coverage) — **zero architecture changes** vs v0.3.
 
 **v0.5 development fixes**:
 1. `pipeline.py` always returned `"horizon"` key even when `multi_horizon=False`, causing multi-horizon loss path to always be used
@@ -143,7 +143,7 @@ sub-1M deployable foundation model is an unclaimed contribution → paper angle.
 | traffic | 0.535 | 0.0000154 | 0.015 | 91.6% |
 | **Overall** | **1.326** | **1.238** | **0.232** | **94.5%** |
 
-**Note on MSE normalization**: NanoForecast uses Instance Robust Scaler (median/IQR), so raw MSE values aren't directly comparable to models using standard normalization. The table above is the repo's own internal protocol; the authoritative comparison is the standard protocol below (MASE overall 1.752 vs TimesFM 1.447, PatchTST 1.554).
+**Note on MSE normalization**: NanoForecast uses Instance Robust Scaler (median/IQR), so raw MSE values aren't directly comparable to models using standard normalization. The table above is the repo's own internal protocol; the authoritative comparison is the standard protocol below (MASE overall 1.704 vs TimesFM 1.447, PatchTST 1.554).
 
 ---
 
@@ -167,14 +167,14 @@ which is not directly comparable to published leaderboards or to TimesFM. So we 
 
 | Dataset | NF-v0.5 | TimesFM-200M | PatchTST | Chronos |
 |---|---|---|---|---|
-| ETTh1   | **0.685** | 0.705  | 0.781 | stalled |
-| ETTh2   | **1.109** | 1.360  | 1.467 | stalled |
-| ETTm1   | **0.289** | 0.545  | 0.488 | stalled |
-| exchange_rate | 4.418 | **4.383** | 3.861 | stalled |
-| electricity | 2.093 | **0.923** | 1.347 | stalled |
-| traffic  | 1.915 | **0.765** | 1.379 | stalled |
+| ETTh1   | **0.681** | 0.705  | 0.781 | stalled |
+| ETTh2   | **1.110** | 1.360  | 1.467 | stalled |
+| ETTm1   | **0.287** | 0.545  | 0.488 | stalled |
+| exchange_rate | **4.317** | 4.383 | **3.861** | stalled |
+| electricity | 2.029 | **0.923** | 1.347 | stalled |
+| traffic  | 1.805 | **0.765** | 1.379 | stalled |
 
-**Read honestly**: NF-v0.5 **beats TimesFM on all three ETT sets** (−3% ETTh1, −18% ETTh2,
+**Read honestly**: NF-v0.5 **beats TimesFM on 4 of 6 sets** (all three ETT plus exchange) (−3% ETTh1, −18% ETTh2,
 −47% ETTm1) and **ties exchange_rate** — but **loses big on high-cardinality
 multivariate sets: electricity and traffic**. This is the race between NF's solidness
 (depth on ETT/exchange) and TimesFM's trained-on-everything breadth (electricity/traffic).
@@ -211,7 +211,7 @@ Infra lessons (from the last chapter of the previous session):
    - `launchctl`-detached local run overnight (self-healing, resume-aware).
    - Worst case, honestly print `N/A`/subsample-deviation on PatchTST and drop Chronos from the big sets (still completable on small sets).
 2. **Refresh `deploy/paper_v05.tex` results with the standard-protocol numbers** (only NF-v0.5 vs TimesFM is currently complete; that alone is already a publishable comparison table). The paper must not cite the old mixed-protocol numbers.
-3. **Update the viral claims** (HF model card, README, LinkedIn/`LAUNCH_KIT.md`): the honest headline is "6.5M-param model beats TimesFM **on all three ETT benchmarks**, 31× smaller + deployable". Do not claim a blanket "beats TimesFM" — TimesFM wins exchange_rate, electricity, and traffic.
+3. **Update the viral claims** (HF model card, README, LinkedIn/`LAUNCH_KIT.md`): the honest headline is "6.5M-param model beats TimesFM **on 4 of 6 benchmarks** (ETT + exchange), 31× smaller + deployable". Do not claim a blanket "beats TimesFM" — TimesFM wins electricity and traffic.
 4. **v0.6 — close the electricity/traffic gap**: raise channels-per-dataset to ~64–128 for the two big sets, extend the synthetic mix, longer fine-tune on T4/Xeon, re-run standard protocol, expect MASE under the TimesFM lines.
 5. **Commit + push the backlog** (files below): the v0.5 branch has uncommitted + untracked benchmark/paper/launch artifacts (~20 files). Commit per-milestone, then push.
 

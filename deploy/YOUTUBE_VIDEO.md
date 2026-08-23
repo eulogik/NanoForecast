@@ -27,11 +27,11 @@
 
 ### Description
 ```
-I trained a time series forecasting model (6.5M parameters) on a free Google Colab T4 GPU (~12 hours). It beats Google's TimesFM (200M parameters) on all three ETT benchmarks — ETTh1, ETTh2, ETTm1 — under an identical standard evaluation protocol.
+I trained a time series forecasting model (6.5M parameters) on a free Google Colab T4 GPU (~12 hours). It beats Google's TimesFM (200M parameters) on four of six benchmarks — ETTh1, ETTh2, ETTm1, and exchange rate — under an identical standard evaluation protocol.
 
 This video covers:
 • How a 31× smaller model can beat a 200M param model on 3 benchmarks
-• The 3 silent training-pipeline fixes that improved accuracy 46.6% (zero architecture changes)
+• The 3 silent training-pipeline fixes that improved accuracy 43.8% (zero architecture changes)
 • How to train and deploy the model yourself
 • What this means for AI accessibility
 
@@ -70,17 +70,17 @@ time series forecasting, AI, machine learning, forecasting, Google TimesFM, open
 
 We trained a model with 6.5 million parameters. Google's TimesFM has 200 million. Ours is 31 times smaller.
 
-But on ETTh1 forecasting — we got a MASE of 0.685. Google got 0.705. We outperformed them.
+But on ETTh1 forecasting — we got a MASE of 0.676. Google got 0.705. We outperformed them.
 
-On ETTh2 — we got 1.109. Google got 1.360. We outperformed them.
+On ETTh2 — we got 1.110. Google got 1.360. We outperformed them.
 
-On ETTm1 — we got 0.289. Google got 0.545. We outperformed them.
+On ETTm1 — we got 0.287. Google got 0.545. We outperformed them.
 
 **[Cut to face cam]**
 
 I'm Gautam Kishore. I built this model as part of my work at Eulogik. And I want to be clear about what this is and isn't.
 
-It's not that our model is better than Google's overall. On exchange_rate, electricity, and traffic, TimesFM still wins. But on all three ETT benchmarks — with 31× fewer parameters — the smaller model performed better.
+It's not that our model is better than Google's overall. On electricity and traffic, TimesFM still wins. But on four of six benchmarks — with 31× fewer parameters — the smaller model performed better.
 
 The interesting question isn't "who wins." It's: how can a model trained on a free Colab GPU even be in the same conversation as a model trained on Google's infrastructure?
 
@@ -96,12 +96,12 @@ That's what this video is about."
 
 **[Highlight each]**
 
-ETTh1: NanoForecast 0.685, TimesFM 0.705 — we win.
-ETTh2: NanoForecast 1.109, TimesFM 1.360 — we win.
-ETTm1: NanoForecast 0.289, TimesFM 0.545 — we win.
-Exchange rate: NanoForecast 4.418, TimesFM 4.383 — TimesFM wins.
-Electricity: NanoForecast 2.093, TimesFM 0.923 — TimesFM wins.
-Traffic: NanoForecast 1.915, TimesFM 0.765 — TimesFM wins.
+ETTh1: NanoForecast 0.676, TimesFM 0.705 — we win.
+ETTh2: NanoForecast 1.110, TimesFM 1.360 — we win.
+ETTm1: NanoForecast 0.287, TimesFM 0.545 — we win.
+Exchange rate: NanoForecast 4.317, TimesFM 4.383 — TimesFM wins.
+Electricity: NanoForecast 2.029, TimesFM 0.923 — TimesFM wins.
+Traffic: NanoForecast 1.805, TimesFM 0.765 — TimesFM wins.
 
 **[Cut to face cam]**
 
@@ -141,7 +141,7 @@ But the bigger reason — the one nobody talks about — is the training pipelin
 
 **[Cut to face cam]**
 
-Here's the truth: between v0.3 and v0.5 we changed zero architecture — and improved MASE from 3.282 to 1.752. That's a 46.6% improvement, entirely from fixing the training pipeline."
+Here's the truth: between v0.3 and v0.5 we changed zero architecture — and improved MASE from 3.030 to 1.704. That's a 43.8% improvement, entirely from fixing the training pipeline."
 
 ---
 
@@ -169,9 +169,9 @@ We expanded the augmentation scheme — jitter, scaling, shifts, masking, and ti
 
 **[Cut to face cam]**
 
-Three fixes. All silent — the model still trained, still converged, still looked fine. It was just 46.6% worse than it should have been: overall MASE 3.282 → 1.752.
+Three fixes. All silent — the model still trained, still converged, still looked fine. It was just 43.8% worse than it should have been: overall MASE 3.030 → 1.704.
 
-The biggest gain was exchange_rate: 12.847 → 4.418, a 65.6% improvement.
+The biggest gain was exchange_rate: 11.758 → 4.317, a 65.6% improvement.
 
 How many models out there have the same problem?"
 

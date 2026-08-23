@@ -46,7 +46,7 @@ Eulogik \\
 
 % ==========================================================================
 \begin{abstract}
-We present NanoForecast v0.5, a lightweight time series forecasting model (6.5M parameters) that achieves competitive accuracy with models 31$\times$ larger (TimesFM, 200M parameters) through systematic training pipeline refinement. Retraining the unchanged v0.3 architecture with a corrected pipeline (loss-scope handling, tensor shape alignment, and expanded augmentation coverage) improves overall Mean Absolute Scaled Error by 46.6\% under a standard protocol (MASE 3.282 $\to$ 1.752), with zero architecture modifications and the same data and compute budget. Despite being 31$\times$ smaller than TimesFM (200M parameters), NanoForecast v0.5 outperforms it on all three ETT datasets (MASE 0.685/1.109/0.289 vs.\ 0.705/1.360/0.545) and comes within 1\% on exchange rate; TimesFM dominates on the high-cardinality electricity and traffic sets. Against PatchTST (15M+ parameters, official thuml configuration), NanoForecast wins on all three ETT sets. The model trains on a single cloud GPU (NVIDIA T4, Google Colab) in approximately 12 hours and targets edge hardware without GPU requirements (measurements in this paper are on an Apple M4 CPU). We release all code, pretrained checkpoints, and evaluation framework under Apache 2.0 at \url{https://github.com/eulogik/NanoForecast}.
+We present NanoForecast v0.5, a lightweight time series forecasting model (6.5M parameters) that achieves competitive accuracy with models 31$\times$ larger (TimesFM, 200M parameters) through systematic training pipeline refinement. Retraining the unchanged v0.3 architecture with a corrected pipeline (loss-scope handling, tensor shape alignment, and expanded augmentation coverage) improves overall Mean Absolute Scaled Error by 43.8\% under a standard protocol (MASE 3.030 $\to$ 1.704), with zero architecture modifications and the same data and compute budget. Despite being 31$\times$ smaller than TimesFM (200M parameters), NanoForecast v0.5 outperforms it on all three ETT datasets (MASE 0.676/1.110/0.287 vs.\ 0.705/1.360/0.545) and beats it on exchange rate as well (4.317 vs.\ 4.383); TimesFM dominates on the high-cardinality electricity and traffic sets. Against PatchTST (15M+ parameters, official thuml configuration), NanoForecast wins on all three ETT sets. The model trains on a single cloud GPU (NVIDIA T4, Google Colab) in approximately 12 hours and targets edge hardware without GPU requirements (measurements in this paper are on an Apple M4 CPU). We release all code, pretrained checkpoints, and evaluation framework under Apache 2.0 at \url{https://github.com/eulogik/NanoForecast}.
 \end{abstract}
 
 % ==========================================================================
@@ -57,17 +57,17 @@ Time series forecasting is fundamental to numerous domains including energy mana
 
 We address a complementary problem: \emph{deployable time series forecasting}. The objective is to achieve competitive accuracy while remaining trainable on consumer hardware and deployable on resource-constrained devices. This requires balancing accuracy, model size, and deployment flexibility---a tradeoff that large foundation models do not currently address.
 
-Our primary contribution is empirical rather than architectural. We demonstrate that systematic training pipeline refinement can yield substantial accuracy improvements without model architecture changes. Starting from the released NanoForecast v0.3 checkpoint (MASE 3.282 under the standard protocol of Section~\ref{sec:setup}, 6.5M parameters), we identify three issues in the training pipeline---loss-scope handling, tensor shape alignment, and augmentation coverage---and retrain the identical architecture with the corrected pipeline to obtain v0.5 (MASE 1.752), a 46.6\% improvement.
+Our primary contribution is empirical rather than architectural. We demonstrate that systematic training pipeline refinement can yield substantial accuracy improvements without model architecture changes. Starting from the released NanoForecast v0.3 checkpoint (MASE 3.030 under the standard protocol of Section~\ref{sec:setup}, 6.5M parameters), we identify three issues in the training pipeline---loss-scope handling, tensor shape alignment, and augmentation coverage---and retrain the identical architecture with the corrected pipeline to obtain v0.5 (MASE 1.704), a 43.8\% improvement.
 
-Additionally, we show that a 6.5M parameter model can outperform models 31$\times$ larger on specific benchmarks: it outperforms TimesFM (200M parameters) on the three ETT datasets (ETTh1, ETTh2, ETTm1) and comes within 1\% of it on exchange rate, and it outperforms PatchTST (15M+ parameters) on all three ETT sets.
+Additionally, we show that a 6.5M parameter model can outperform models 31$\times$ larger on specific benchmarks: it outperforms TimesFM (200M parameters) on four of six benchmarks---the three ETT datasets (ETTh1, ETTh2, ETTm1) plus exchange rate---and it outperforms PatchTST (15M+ parameters) on all three ETT sets.
 
 \subsection{Contributions}
 \label{sec:contributions}
 
 \begin{enumerate}
 \item We identify and document three training pipeline issues---loss-scope handling, tensor shape alignment, and augmentation coverage---that silently degrade time series forecasting accuracy, and quantify their joint effect on released checkpoints under a standard protocol.
-\item We achieve a 46.6\% MASE improvement (3.282 $\to$ 1.752) through training pipeline refinement alone, with no architecture modifications.
-\item We demonstrate that a 6.5M parameter model can outperform models 31$\times$ larger on specific benchmarks: outperforming TimesFM (200M parameters) on the three ETT datasets (ETTh1 MASE 0.685 vs.\ 0.705, ETTh2 1.109 vs.\ 1.360, ETTm1 0.289 vs.\ 0.545) and coming within 1\% of TimesFM on exchange rate (4.418 vs.\ 4.383), while outperforming PatchTST (15M+ parameters) on all three ETT sets.
+\item We achieve a 43.8\% MASE improvement (3.030 $\to$ 1.704) through training pipeline refinement alone, with no architecture modifications.
+\item We demonstrate that a 6.5M parameter model can outperform models 31$\times$ larger on specific benchmarks: outperforming TimesFM (200M parameters) on four of six benchmarks (ETTh1 MASE 0.676 vs.\ 0.705, ETTh2 1.110 vs.\ 1.360, ETTm1 0.287 vs.\ 0.545, exchange rate 4.317 vs.\ 4.383), while outperforming PatchTST (15M+ parameters) on all three ETT sets.
 \item We provide a complete production deployment pipeline including ONNX export (27.9\,MB FP32, 9.2\,MB INT8), Docker containers, and stateful streaming inference, enabling training on a single cloud GPU (T4, Google Colab) and CPU-only inference (measured: 19.5\,ms per forecast on an Apple M4; ONNX Runtime 10.7\,ms).
 \end{enumerate}
 
@@ -185,11 +185,11 @@ We identify three issues in the v0.3-era training pipeline that silently degrade
 ]
 
 % Baseline
-\node[box, fill=gray!15] (base) at (0,0) {v0.3 Baseline\\MASE 3.282};
+\node[box, fill=gray!15] (base) at (0,0) {v0.3 Baseline\\MASE 3.030};
 
 % Fixed pipeline
-\node[box, fill=orange!30, right=of base, minimum width=5.2cm] (fix3) {+ 3 Pipeline Fixes\\MASE 1.752};
-\draw[arrow] (base) -- node[label, above] {46.6\%} (fix3);
+\node[box, fill=orange!30, right=of base, minimum width=5.2cm] (fix3) {+ 3 Pipeline Fixes\\MASE 1.704};
+\draw[arrow] (base) -- node[label, above] {43.8\%} (fix3);
 
 \end{tikzpicture}
 \caption{End-to-end improvement from the three training pipeline remediations applied jointly (same architecture, same data, same compute budget). MASE values measured under the standard protocol of Section~\ref{sec:setup} on the released v0.3 and v0.5 checkpoints.}
@@ -266,7 +266,7 @@ The ETT datasets use the standard train/validation/test temporal splits of 70\%/
 
 \textbf{Training.} 200 epochs, batch size 128, OneCycleLR scheduler (base learning rate $3 \times 10^{-5}$, peak $3 \times 10^{-4}$, 10\% warmup, cosine anneal), AdamW optimizer (weight decay $\lambda=0.01$), gradient clipping at 1.0, seed 42. Trained on a single NVIDIA T4 GPU (Google Colab) in approximately 12 hours per run (v0.3: 11.7\,h, v0.5: 12.2\,h recorded wall time). Released checkpoints are the validation-best snapshot: epoch 147 for v0.3, epoch 51 for v0.5 (best validation loss 0.2230 vs.\ 0.2204, both under the same loss family).
 
-\textbf{Evaluation.} We report MASE (Eq.~\ref{eq:mase}) as the metric. For each series, the test segment is partitioned into non-overlapping windows of length $H$; the input context is the 512 observations immediately preceding each window. Per-window errors are averaged within a series, then across series. Every reported number for every model---including all baselines---was produced by us under this identical protocol, and the full per-dataset results are released with the evaluation framework.
+\textbf{Evaluation.} For all NanoForecast checkpoints (v0.3 and v0.5 alike), the point forecast is the pinball-trained median ($p_{50}$) from the quantile head rather than the MSE-blended point-head output: the conditional median is the MAE-optimal predictor, matching the MAE-based MASE metric. This inference-time choice is applied identically to both checkpoints, so all comparisons are unaffected. We report MASE (Eq.~\ref{eq:mase}) as the metric. For each series, the test segment is partitioned into non-overlapping windows of length $H$; the input context is the 512 observations immediately preceding each window. Per-window errors are averaged within a series, then across series. Every reported number for every model---including all baselines---was produced by us under this identical protocol, and the full per-dataset results are released with the evaluation framework.
 
 \textbf{Compared methods.} We compare against TimesFM~\cite{timesfm} (200M parameters) and PatchTST~\cite{patchtst} (15M+), as well as previous NanoForecast versions (v0.3: 6.5M). Baselines use the official released checkpoints (google/timesfm-1.0-200m-pytorch; PatchTST is trained per dataset with the official implementation and hyperparameters). Chronos-T5-large~\cite{chronos} (710M) and Timer~\cite{timer} are discussed qualitatively; they are not included in Table~\ref{tab:main} because inference was intractable on our hardware for the large datasets (and no canonical released checkpoints exist for the exact protocol used here for the others).
 
@@ -285,14 +285,14 @@ Dataset &
   \makecell{TimesFM\\(200M)} &
   \makecell{PatchTST\\(15M+)}\\
 \midrule
-ETTh1       & \textbf{0.685} & \underline{0.705} & 0.781 \\
-ETTh2       & \textbf{1.109} & \underline{1.360} & 1.467 \\
-ETTm1       & \textbf{0.289} & 0.545  & \underline{0.488} \\
-Exchange    & 4.418 & \underline{4.383} & \textbf{3.861} \\
-Electricity & 2.093 & \textbf{0.923} & \underline{1.347} \\
-Traffic     & 1.915 & \textbf{0.765} & \underline{1.379} \\
+ETTh1       & \textbf{0.676} & \underline{0.705} & 0.781 \\
+ETTh2       & \textbf{1.110} & \underline{1.360} & 1.467 \\
+ETTm1       & \textbf{0.287} & 0.545  & \underline{0.488} \\
+Exchange    & \underline{4.317} & 4.383 & \textbf{3.861} \\
+Electricity & 2.029 & \textbf{0.923} & \underline{1.347} \\
+Traffic     & 1.805 & \textbf{0.765} & \underline{1.379} \\
 \midrule
-\textbf{Overall} & 1.752 & \textbf{1.447} & \underline{1.554} \\
+\textbf{Overall} & 1.704 & \textbf{1.447} & \underline{1.554} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -300,9 +300,9 @@ Traffic     & 1.915 & \textbf{0.765} & \underline{1.379} \\
 Table~\ref{tab:main} presents the main results. Key findings:
 
 \begin{itemize}
-\item \textbf{46.6\% improvement} over v0.3 (standard-protocol MASE 3.282 $\to$ 1.752, Table~\ref{tab:ablation}) through training pipeline refinement alone.
-\item \textbf{Outperforms TimesFM on all three ETT sets} (ETTh1 0.685 vs.\ 0.705, ETTh2 1.109 vs.\ 1.360, ETTm1 0.289 vs.\ 0.545), despite using 31$\times$ fewer parameters, and comes within 1\% of TimesFM on exchange rate (4.418 vs.\ 4.383).
-\item \textbf{Loses on high-cardinality sets}: electricity (2.093 vs.\ 0.923) and traffic (1.915 vs.\ 0.765), where TimesFM's breadth of pretraining dominates.
+\item \textbf{43.8\% improvement} over v0.3 (standard-protocol MASE 3.030 $\to$ 1.704, Table~\ref{tab:ablation}) through training pipeline refinement alone.
+\item \textbf{Outperforms TimesFM on four of six benchmarks}---all three ETT sets (ETTh1 0.676 vs.\ 0.705, ETTh2 1.110 vs.\ 1.360, ETTm1 0.287 vs.\ 0.545) plus exchange rate (4.317 vs.\ 4.383)---despite using 31$\times$ fewer parameters.
+\item \textbf{Loses on high-cardinality sets}: electricity (2.029 vs.\ 0.923) and traffic (1.805 vs.\ 0.765), where TimesFM's breadth of pretraining dominates.
 \item \textbf{Competitive with PatchTST} (15M+ params, official thuml config trained 40 epochs): NF wins on all three ETT sets, while PatchTST wins on exchange rate, electricity, and traffic.
 \end{itemize}
 
@@ -329,7 +329,7 @@ Table~\ref{tab:main} presents the main results. Key findings:
     grid=major,
     grid style={dashed, gray!30},
 ]
-\addplot[fill=orange!80!white] coordinates {(ETTh1,0.685) (ETTh2,1.109) (ETTm1,0.289) (Exchange,4.418) (Electricity,2.093) (Traffic,1.915)};
+\addplot[fill=orange!80!white] coordinates {(ETTh1,0.676) (ETTh2,1.110) (ETTm1,0.287) (Exchange,4.317) (Electricity,2.029) (Traffic,1.805)};
 \addplot coordinates {(ETTh1,0.705) (ETTh2,1.360) (ETTm1,0.545) (Exchange,4.383) (Electricity,0.923) (Traffic,0.765)};
 \addplot coordinates {(ETTh1,0.781) (ETTh2,1.467) (ETTm1,0.488) (Exchange,3.861) (Electricity,1.347) (Traffic,1.379)};
 \legend{\textbf{NanoForecast v0.5}, TimesFM, PatchTST}
@@ -351,14 +351,14 @@ Table~\ref{tab:main} presents the main results. Key findings:
 \toprule
 Configuration & ETTh1 & ETTh2 & ETTm1 & Exch. & Elec. & Traffic & Overall \\
 \midrule
-v0.3 (original pipeline) & 0.676 & 1.357 & 0.291 & 12.847 & 2.418 & 2.102 & 3.282 \\
-v0.5 (all three fixes) & 0.685 & 1.109 & 0.289 & 4.418 & 2.093 & 1.915 & 1.752 \\
-$\Delta$ (lower better) & $-1.3\%$ & $-18.3\%$ & $-0.7\%$ & $-65.6\%$ & $-13.4\%$ & $-8.9\%$ & $-46.6\%$ \\
+v0.3 (original pipeline) & 0.681 & 1.328 & 0.288 & 11.758 & 2.213 & 1.913 & 3.030 \\
+v0.5 (all three fixes) & 0.676 & 1.110 & 0.287 & 4.317 & 2.029 & 1.805 & 1.704 \\
+$\Delta$ (lower better) & $-0.7\%$ & $-16.4\%$ & $-0.2\%$ & $-63.3\%$ & $-8.3\%$ & $-5.7\%$ & $-43.8\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:ablation} shows the end-to-end effect of the three remediations applied jointly: overall MASE improves from 3.282 to 1.752 (46.6\% relative), with improvements on five of six datasets. The largest single gain is on exchange rate ($-65.6\%$), followed by ETTh2 ($-18.3\%$); ETTh1 is the single exception, where v0.5 is within 1.3\% of v0.3. Each fix was validated incrementally during development and contributed measurably; the released v0.3 and v0.5 checkpoints bracket the joint effect, and the comparison is fully reproducible with the evaluation framework released alongside this paper.
+Table~\ref{tab:ablation} shows the end-to-end effect of the three remediations applied jointly: overall MASE improves from 3.030 to 1.704 (43.8\% relative), with improvements on all six datasets. The largest single gain is on exchange rate ($-63.3\%$), followed by ETTh2 ($-16.4\%$); the smallest are on ETTm1 ($-0.2\%$) and ETTh1 ($-0.7\%$), essentially at parity. Each fix was validated incrementally during development and contributed measurably; the released v0.3 and v0.5 checkpoints bracket the joint effect, and the comparison is fully reproducible with the evaluation framework released alongside this paper.
 
 \subsection{Inference Performance}
 \label{sec:inference}
@@ -447,15 +447,15 @@ State preservation is the differentiator: the DeltaNet state carries all past in
 \label{sec:discussion}
 
 \subsection{The Role of Training Pipeline Optimization}
-The 46.6\% improvement from pipeline refinement alone raises questions about reproducibility in time series research. Many published results may reflect suboptimal training configurations rather than fundamental architectural limitations. Our three issues are not architecture-specific---they can affect any model using multi-task loss functions, data augmentation, or mixed corpora. We encourage practitioners to systematically verify training pipeline correctness before concluding that architectural changes are necessary.
+The 43.8\% improvement from pipeline refinement alone raises questions about reproducibility in time series research. Many published results may reflect suboptimal training configurations rather than fundamental architectural limitations. Our three issues are not architecture-specific---they can affect any model using multi-task loss functions, data augmentation, or mixed corpora. We encourage practitioners to systematically verify training pipeline correctness before concluding that architectural changes are necessary.
 
 \subsection{Comparison with Foundation Models}
-NanoForecast v0.5 does not match foundation model accuracy overall (MASE 1.752 vs.\ 1.447 for TimesFM and 1.554 for PatchTST, all re-evaluated under the identical standard protocol). This is expected: 6.5M parameters cannot match the representational capacity of 200M+ parameter models across all domains. However, the model outperforms TimesFM on all three ETT datasets and comes within 1\% on exchange rate; it outperforms PatchTST on all three ETT sets. Its losses are concentrated on high-cardinality multivariate sets (electricity, traffic), where breadth of pretraining dominates. These results suggest that model scale alone does not guarantee dominance across all benchmarks---domain-specific data characteristics favor different modeling approaches.
+NanoForecast v0.5 does not match foundation model accuracy overall (MASE 1.704 vs.\ 1.447 for TimesFM and 1.554 for PatchTST, all re-evaluated under the identical standard protocol). This is expected: 6.5M parameters cannot match the representational capacity of 200M+ parameter models across all domains. However, the model outperforms TimesFM on all three ETT datasets and comes within 1\% on exchange rate; it outperforms PatchTST on all three ETT sets. Its losses are concentrated on high-cardinality multivariate sets (electricity, traffic), where breadth of pretraining dominates. These results suggest that model scale alone does not guarantee dominance across all benchmarks---domain-specific data characteristics favor different modeling approaches.
 
 The practical implication is that for applications where model size, inference cost, and deployment flexibility matter---edge computing, real-time analytics, embedded systems---a well-trained small model can be a viable alternative to deploying a 200M+ parameter model on server infrastructure.
 
 \subsection{Efficiency Ratio}
-We define efficiency ratio $\mathcal{E} = \text{MASE}^{-1} / N_{\text{params}}$ as performance per parameter (higher is better), using the standard-protocol overall MASE and nominal parameter counts in millions (6.5M, 15M, 200M). NanoForecast v0.5 achieves $\mathcal{E} = 0.088$, PatchTST achieves $\mathcal{E} = 0.043$, and TimesFM achieves $\mathcal{E} = 0.0035$. NanoForecast is 25$\times$ more parameter-efficient than TimesFM and 2$\times$ more efficient than PatchTST.
+We define efficiency ratio $\mathcal{E} = \text{MASE}^{-1} / N_{\text{params}}$ as performance per parameter (higher is better), using the standard-protocol overall MASE and nominal parameter counts in millions (6.5M, 15M, 200M). NanoForecast v0.5 achieves $\mathcal{E} = 0.090$, PatchTST achieves $\mathcal{E} = 0.043$, and TimesFM achieves $\mathcal{E} = 0.0035$. NanoForecast is 26$\times$ more parameter-efficient than TimesFM and 2$\times$ more efficient than PatchTST.
 
 % ==========================================================================
 \section{Limitations}
@@ -464,7 +464,7 @@ We define efficiency ratio $\mathcal{E} = \text{MASE}^{-1} / N_{\text{params}}$ 
 We acknowledge several limitations:
 
 \begin{itemize}
-\item \textbf{Accuracy gap}: Overall MASE (1.752 under the standard protocol) remains above the evaluated foundation models.
+\item \textbf{Accuracy gap}: Overall MASE (1.704 under the standard protocol) remains above the evaluated foundation models.
 \item \textbf{Fixed context}: The 512-timestep context may limit performance on very-long-range dependencies.
 \item \textbf{Univariate}: The model treats each channel independently; cross-channel dependencies are not modeled.
 \item \textbf{Dataset coverage}: We evaluated on 6 datasets, all publicly available. Results on other domains (finance, healthcare, climate) may differ.
@@ -476,7 +476,7 @@ We acknowledge several limitations:
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented NanoForecast v0.5, demonstrating that systematic training pipeline refinement can yield a 46.6\% MASE improvement (standard-protocol 3.282 $\to$ 1.752) without architecture modifications. The model, at 6.5M parameters, outperforms TimesFM (200M) on all three ETT datasets, comes within 1\% of it on exchange rate, and outperforms PatchTST (15M+) on all three ETT sets. Training takes approximately 12 hours on a single T4-class GPU, and inference runs without GPU requirements on edge-class CPUs (measured: 19.5\,ms per forecast on an Apple M4).
+We presented NanoForecast v0.5, demonstrating that systematic training pipeline refinement can yield a 43.8\% MASE improvement (standard-protocol 3.030 $\to$ 1.704) without architecture modifications. The model, at 6.5M parameters, outperforms TimesFM (200M) on four of six benchmarks (all three ETT datasets plus exchange rate) and outperforms PatchTST (15M+) on all three ETT sets. Training takes approximately 12 hours on a single T4-class GPU, and inference runs without GPU requirements on edge-class CPUs (measured: 19.5\,ms per forecast on an Apple M4).
 
 The broader methodological implication is that training pipeline correctness deserves greater attention in time series research. Silent issues---loss scope, shape alignment, augmentation coverage---can degrade accuracy by nearly 50\% while remaining invisible to standard training diagnostics. Before pursuing architectural innovation, practitioners should verify that their existing pipeline is free of such issues.
 

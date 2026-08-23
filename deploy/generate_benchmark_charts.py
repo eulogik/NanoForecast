@@ -33,8 +33,8 @@ BG_COLOR = "#FAFAFA"
 DATASETS = ["ETTh1", "ETTh2", "ETTm1", "Exchange", "Electricity", "Traffic"]
 
 # Standard-protocol MASE (benchmark_standard.py, fixed harness).
-MASE_V05 = [0.685, 1.109, 0.289, 4.418, 2.093, 1.915]
-MASE_V03 = [0.676, 1.357, 0.291, 12.847, 2.418, 2.102]
+MASE_V05 = [0.676, 1.110, 0.287, 4.317, 2.029, 1.805]
+MASE_V03 = [0.681, 1.328, 0.288, 11.758, 2.213, 1.913]
 MASE_TFM = [0.705, 1.360, 0.545, 4.383, 0.923, 0.765]
 MASE_PTST = [0.781, 1.467, 0.488, 3.861, 1.347, 1.379]
 
@@ -100,7 +100,7 @@ def chart_v03_vs_v05():
     ax.set_xticklabels(DATASETS, fontweight="bold")
     ax.set_ylim(0, 14.0)
     ax.legend(fontsize=10, loc="upper left")
-    ax.text(0.02, 0.92, "Overall MASE 3.282 → 1.752  (−46.6%)",
+    ax.text(0.02, 0.92, "Overall MASE 3.030 → 1.704  (−43.8%)",
             transform=ax.transAxes, fontsize=11, fontweight="bold", color="#2ECC71")
     plt.tight_layout()
     out = os.path.join(os.path.dirname(__file__), "benchmark_v03_vs_v05.png")

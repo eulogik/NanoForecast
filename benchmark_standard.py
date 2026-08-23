@@ -103,8 +103,10 @@ class NanoForecastModel:
     def predict_batch(self, contexts: List[np.ndarray], dataset: str,
                               series_idx: int = 0, starts: List[int] = None):
         batch = np.stack(contexts).astype(np.float32)
+        # use_p50=True: point forecast = pinball-trained median (MAE-optimal
+        # for MASE); see paper "median-as-point-forecast" note.
         out = self.model.predict(context=batch, horizon=H, freq=FREQ_NF[dataset],
-                                 return_components=False)
+                                 return_components=False, use_p50=True)
         return out["forecast"], out["quantiles"]
 
 

@@ -7,10 +7,10 @@ for every model under the identical protocol.
 
 **Verified headline facts:**
 - NanoForecast v0.5: 6.5M params (6,518,104) — 31× smaller than TimesFM (200M)
-- Beats TimesFM on all three ETT benchmarks: ETTh1 0.685 vs 0.705, ETTh2 1.109 vs 1.360, ETTm1 0.289 vs 0.545
+- Beats TimesFM on 4 of 6 benchmarks: ETTh1 0.676 vs 0.705, ETTh2 1.110 vs 1.360, ETTm1 0.287 vs 0.545, exchange 4.317 vs 4.383
 - Beats PatchTST (15M+) on the same three ETT datasets
 - TimesFM and PatchTST win exchange_rate, electricity, traffic — never claim a blanket win
-- v0.3 → v0.5: standard-protocol MASE 3.282 → 1.752 (−46.6%), zero architecture changes
+- v0.3 → v0.5: standard-protocol MASE 3.030 → 1.704 (−43.8%), zero architecture changes
 - Trained ~12h on a free Colab T4 (checkpoint wall time 43,750s)
 - ONNX: ~27.9 MB FP32 / ~9.2 MB INT8
 
@@ -24,12 +24,12 @@ for every model under the identical protocol.
 
 **For: TechCrunch, Hacker News, general tech press**
 
-> Google spent millions training TimesFM (200M params). We trained a 6.5M-parameter model that beats it on all three ETT benchmarks — on a free Colab T4 in ~12 hours — and it runs on a $35 Raspberry Pi.
+> Google spent millions training TimesFM (200M params). We trained a 6.5M-parameter model that beats it on four of six benchmarks — on a free Colab T4 in ~12 hours — and it runs CPU-only.
 
 **Proof points:**
-- ETTh1: NanoForecast 0.685 vs TimesFM 0.705 (we win)
-- ETTh2: NanoForecast 1.109 vs TimesFM 1.360 (we win)
-- ETTm1: NanoForecast 0.289 vs TimesFM 0.545 (we win)
+- ETTh1: NanoForecast 0.676 vs TimesFM 0.705 (we win)
+- ETTh2: NanoForecast 1.110 vs TimesFM 1.360 (we win)
+- ETTm1: NanoForecast 0.287 vs TimesFM 0.545 (we win)
 - Size: 6.5M vs 200M params (31× smaller)
 - Hardware: Raspberry Pi vs GPU cluster
 - Training: free Colab T4, ~12 hours
@@ -59,11 +59,11 @@ for every model under the identical protocol.
 
 **For: arXiv, Papers With Code, ML Twitter**
 
-> We improved MASE by 46.6% without adding a single parameter. The ML community's obsession with scale might be missing something more fundamental.
+> We improved MASE by 43.8% without adding a single parameter. The ML community's obsession with scale might be missing something more fundamental.
 
 **Proof points:**
-- v0.3 → v0.5: Same architecture (6.5M), MASE 3.282 → 1.752 (−46.6%)
-- Beats TimesFM (200M) on all three ETT benchmarks at 31× fewer parameters
+- v0.3 → v0.5: Same architecture (6.5M), MASE 3.030 → 1.704 (−43.8%)
+- Beats TimesFM (200M) on 4 of 6 benchmarks at 31× fewer parameters
 - Training pipeline fixes > architecture changes
 - Full standard-protocol ablation in the paper
 
@@ -156,13 +156,13 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **For: ML engineers, data scientists**
 
-> We found 3 silent training-pipeline issues that were costing our model 46.6% accuracy. The model still trained. Still converged. Still looked fine. It was just much worse than it should have been.
+> We found 3 silent training-pipeline issues that were costing our model 43.8% accuracy. The model still trained. Still converged. Still looked fine. It was just much worse than it should have been.
 
 **Proof points:**
 - Fix 1: Loss-scope handling (multi-task loss scope + stray "horizon" key)
 - Fix 2: Tensor shape alignment in the quantile-loss path
 - Fix 3: Augmentation coverage (broader, uniform across real and synthetic records)
-- Combined: MASE 3.282 → 1.752 (−46.6%), zero architecture changes
+- Combined: MASE 3.030 → 1.704 (−43.8%), zero architecture changes
 
 **Why it works:** Every ML engineer fears silent problems in their pipeline.
 
@@ -172,7 +172,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 
 **For: Open source advocates, Linux/FOSS press**
 
-> Google won't release TimesFM's weights. We released everything: code, model, training pipeline. And we beat them on all three ETT benchmarks — at 31× fewer parameters.
+> Google won't release TimesFM's weights. We released everything: code, model, training pipeline. And we beat them on four of six benchmarks — at 31× fewer parameters.
 
 **Proof points:**
 - Apache 2.0 license (free forever)
@@ -189,7 +189,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 | Platform | Angle | Headline |
 |----------|-------|----------|
 | Hacker News | Tiny model beats Google | "Show HN: 6.5M param model beats Google's TimesFM (200M) on all 3 ETT benchmarks" |
-| Reddit r/MachineLearning | Training pipeline fixes | "[R] 46.6% MASE improvement from 3 training pipeline fixes (same architecture, 6.5M)" |
+| Reddit r/MachineLearning | Training pipeline fixes | "[R] 43.8% MASE improvement from 3 training pipeline fixes (same architecture, 6.5M)" |
 | Reddit r/LocalLLaMA | Edge deployment | "6.5M param model that trains on a free Colab GPU, runs on Raspberry Pi, beats TimesFM on ETT" |
 | Reddit r/Python | pip install | "pip install a time series model, train on your CSV, deploy to Raspberry Pi" |
 | Product Hunt | Ships in minutes | "NanoForecast: Train a competitive AI model on your laptop in minutes" |
@@ -197,7 +197,7 @@ python train_from_csv.py --csv sales.csv --target revenue --horizon 48
 | Twitter/X | Thread (see below) | "We trained a model that beats Google's on 3 benchmarks. It cost ~12 free Colab hours." |
 | YouTube | David vs Goliath | "The Tiny AI That Beats Google on 3 Benchmarks" |
 | TechCrunch | Cost disruption | "This 6.5M parameter model was trained on a free Colab GPU and runs on a Raspberry Pi" |
-| ArXiv | Training > Architecture | "NanoForecast v0.5: 46.6% improvement from training pipeline fixes (zero architecture changes)" |
+| ArXiv | Training > Architecture | "NanoForecast v0.5: 43.8% improvement from training pipeline fixes (zero architecture changes)" |
 
 ---
 
@@ -217,12 +217,12 @@ Google spent millions. We spent free GPU hours.
 
 Tweet 2 (The Result):
 NanoForecast v0.5 (standard protocol, identical for both models):
-• ETTh1: 0.685 vs TimesFM 0.705 ✓
-• ETTh2: 1.109 vs TimesFM 1.360 ✓
-• ETTm1: 0.289 vs TimesFM 0.545 ✓
-• exchange: 4.418 vs 4.383 ✗
-• electricity: 2.093 vs 0.923 ✗
-• traffic: 1.915 vs 0.765 ✗
+• ETTh1: 0.676 vs TimesFM 0.705 ✓
+• ETTh2: 1.110 vs TimesFM 1.360 ✓
+• ETTm1: 0.287 vs TimesFM 0.545 ✓
+• exchange: 4.317 vs 4.383 ✗
+• electricity: 2.029 vs 0.923 ✗
+• traffic: 1.805 vs 0.765 ✗
 
 3-3. Honest scorekeeping. Scale still matters — but it's not everything.
 
@@ -261,7 +261,7 @@ Feed it one value, get an updated forecast (one forward pass, memory preserved).
 No other time series model does this.
 
 Tweet 7 (The Lesson):
-The surprising part? We improved MASE 3.282 → 1.752 (−46.6%) without adding a single parameter.
+The surprising part? We improved MASE 3.030 → 1.704 (−43.8%) without adding a single parameter.
 
 We fixed 3 silent training-pipeline issues that were degrading performance.
 
@@ -326,7 +326,7 @@ NanoForecast is evidence that the new paradigm works.
 ❌ "45ms on Pi / <1ms streaming / $0.12" (Pi latency and cost not benchmarked; measured on Apple M4 CPU: 140 ms PyTorch FP32, 31 ms ONNX FP32 — streaming update costs one forward pass, 121 ms)
 
 ✅ "Competitive with Google at 1/31st the size"
-✅ "Beats TimesFM on all three ETT benchmarks (standard protocol)"
+✅ "Beats TimesFM on 4 of 6 benchmarks (standard protocol)"
 ✅ "Beats PatchTST on the same three ETT datasets"
-✅ "46.6% improvement from training pipeline fixes (verified ablation)"
+✅ "43.8% improvement from training pipeline fixes (verified ablation)"
 ✅ "Trains on a free Colab T4 in ~12 hours"

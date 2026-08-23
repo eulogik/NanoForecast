@@ -9,7 +9,7 @@ authors:
 
 # NanoForecast v0.5: From MASE 3.28 → 1.75 with Zero Architecture Changes
 
-*How fixing the training pipeline — loss scope, tensor shapes, augmentation coverage — slashed error by 46.6% on a 6.5M parameter model.*
+*How fixing the training pipeline — loss scope, tensor shapes, augmentation coverage — slashed error by 43.8% on a 6.5M parameter model.*
 
 ---
 
@@ -23,7 +23,7 @@ Time series forecasting models fall into two camps:
 
 ## The Key Insight
 
-We didn't change the architecture between v0.3 and v0.5. Same LongConv + DeltaNet RNN, same gated router, same MLP blocks. **The 46.6% improvement came entirely from fixing the training pipeline**:
+We didn't change the architecture between v0.3 and v0.5. Same LongConv + DeltaNet RNN, same gated router, same MLP blocks. **The 43.8% improvement came entirely from fixing the training pipeline**:
 
 1. **Loss-scope handling** — v0.5's development fixed how the multi-task loss weights the horizon, point, and quantile terms
 2. **Tensor shape alignment** — quantile-loss and reconstruction paths were aligned to the correct shapes
@@ -38,13 +38,13 @@ MASE scaled by seasonal-naive in-sample MAE — identical for every model):
 
 | Dataset | v0.3 MASE | v0.5 MASE | TimesFM | PatchTST |
 |:---|---:|---:|---:|---:|
-| ETTh1 | 0.676 | **0.685** | 0.705 | 0.781 |
-| ETTh2 | 1.357 | **1.109** | 1.360 | 1.467 |
-| ETTm1 | 0.291 | **0.289** | 0.545 | 0.488 |
-| exchange_rate | 12.847 | 4.418 | **4.383** | 3.861 |
-| electricity | 2.418 | 2.093 | **0.923** | 1.347 |
-| traffic | 2.102 | 1.915 | **0.765** | 1.379 |
-| **Overall** | **3.282** | **1.752** | **1.447** | 1.554 |
+| ETTh1 | 0.681 | **0.676** | 0.705 | 0.781 |
+| ETTh2 | 1.328 | **1.110** | 1.360 | 1.467 |
+| ETTm1 | 0.288 | **0.287** | 0.545 | 0.488 |
+| exchange_rate | 11.758 | 4.317 | **4.383** | 3.861 |
+| electricity | 2.213 | 2.029 | **0.923** | 1.347 |
+| traffic | 1.913 | 1.805 | **0.765** | 1.379 |
+| **Overall** | **3.030** | **1.704** | **1.447** | 1.554 |
 
 NanoForecast v0.5 **outperforms TimesFM on all three ETT datasets** (and PatchTST on the
 same three) at 31× fewer parameters. TimesFM and PatchTST win on exchange_rate, electricity,

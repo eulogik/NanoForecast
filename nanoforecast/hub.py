@@ -128,6 +128,7 @@ class NanoForecastHubMixin:
         return_components: bool = True,
         num_samples: int = 1,
         return_state: bool = False,
+        use_p50: bool = True,
     ) -> Dict[str, np.ndarray]:
         """Run a single-call forecast on a 1-D or 2-D context.
 
@@ -140,6 +141,10 @@ class NanoForecastHubMixin:
             num_samples: number of stochastic sample draws (1 = deterministic).
             return_state: if True, also returns a ``StreamingState`` that can be
                           passed to ``predict_step`` for online inference.
+            use_p50: if True (default), the point forecast is the pinball-trained
+                median (p50) from the quantile head. The median is the MAE-optimal
+                point predictor and measurably improves MASE versus the MSE-blended
+                point head. Set False to use the raw point head instead.
 
         Returns:
             dict with keys:
@@ -186,9 +191,11 @@ class NanoForecastHubMixin:
         else:
             out = self(ctx, freq_ids, covariates)
 
+        quantiles_np = out["quantiles"].squeeze(1).cpu().numpy()
+        forecast = quantiles_np[..., 2, :] if use_p50 else out["forecast"].squeeze(1).cpu().numpy()
         result: Dict[str, np.ndarray] = {
-            "forecast": out["forecast"].squeeze(1).cpu().numpy(),
-            "quantiles": out["quantiles"].squeeze(1).cpu().numpy(),
+            "forecast": forecast,
+            "quantiles": quantiles_np,
         }
         if return_components:
             result["trend"] = out["trend"].squeeze(1).cpu().numpy()
@@ -208,6 +215,7 @@ class NanoForecastHubMixin:
         horizon: int = 48,
         freq: Union[str, int, None] = "H",
         return_components: bool = True,
+        use_p50: bool = True,
     ) -> Dict:
         """Stream one new observation and update the forecast.
 
@@ -232,6 +240,9 @@ class NanoForecastHubMixin:
             horizon: Forecast horizon.
             freq: Frequency alias or integer freq_id.
             return_components: Include trend/seasonal/residual if True.
+            use_p50: if True (default), the point forecast is the pinball-trained
+                median (p50) from the quantile head (MAE-optimal). Set False to
+                use the raw point head.
 
         Returns:
             dict with keys ``forecast``, ``quantiles``, and optionally
@@ -253,9 +264,10 @@ class NanoForecastHubMixin:
 
         out = self.forward_stream(ctx, freq_ids, state.delta_states, covariates)
 
+        quantiles_np = out["quantiles"].squeeze(1).cpu().numpy()
         result: Dict = {
-            "forecast": out["forecast"].squeeze(1).cpu().numpy(),
-            "quantiles": out["quantiles"].squeeze(1).cpu().numpy(),
+            "forecast": quantiles_np[..., 2, :] if use_p50 else out["forecast"].squeeze(1).cpu().numpy(),
+            "quantiles": quantiles_np,
         }
         if return_components:
             result["trend"] = out["trend"].squeeze(1).cpu().numpy()

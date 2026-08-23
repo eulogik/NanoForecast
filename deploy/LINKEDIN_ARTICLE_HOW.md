@@ -22,13 +22,13 @@ We designed a model from scratch that was never supposed to be big. No LLM backb
 
 Google's TimesFM is 200 million. Amazon's Chronos-T5 is 710 million.
 
-And on all three ETT benchmarks — ETTh1, ETTh2, ETTm1 — our 6.5M model *beats* Google's 200M one under an identical standard protocol.
+And on four of six benchmarks — ETTh1, ETTh2, ETTm1, and exchange rate — our 6.5M model *beats* Google's 200M one under an identical standard protocol.
 
 Not "comes close." Beats. Here's the actual table:
 
 | Model | Params | ETTh1 MASE | ETTh2 MASE | ETTm1 MASE |
 |---|---|---|---|---|
-| NanoForecast v0.5 | **6.5M** | **0.685** | **1.109** | **0.289** |
+| NanoForecast v0.5 | **6.5M** | **0.676** | **1.110** | **0.287** |
 | TimesFM (Google) | 200M | 0.705 | 1.360 | 0.545 |
 | PatchTST | 15M+ | 0.781 | 1.467 | 0.488 |
 
@@ -71,9 +71,9 @@ Here's the part that made us rethink everything.
 
 Between v0.3 and v0.5, we did **not change a single layer** of the architecture. Same LongConv + DeltaNet hybrid. Same gated router. Same MLP blocks. Same 6.5M parameters.
 
-And we still improved MASE from 3.282 → 1.752 (standard protocol).
+And we still improved MASE from 3.030 → 1.704 (standard protocol).
 
-**A 46.6% improvement. From training pipeline fixes alone.**
+**A 43.8% improvement. From training pipeline fixes alone.**
 
 Three fixes, essentially:
 
@@ -81,7 +81,7 @@ Three fixes, essentially:
 2. **Tensor shape alignment** — the quantile-loss path compared tensors of mismatched shapes, quietly sabotaging the quantile and anomaly heads.
 3. **Augmentation coverage** — broader augmentation (jitter, scaling, shifts, masking, reversal) applied uniformly to real and synthetic records.
 
-Fix those three things, don't touch the model, and watch it get 46.6% better.
+Fix those three things, don't touch the model, and watch it get 43.8% better.
 
 That's the quiet lesson of this project: **in 2026, the biggest wins in applied ML aren't new architectures — they're fixing the pipeline.** The architecture was already good. We were grading it wrong.
 
@@ -114,4 +114,4 @@ Ours is small because it was born that way — designed for one job, trained pro
 The model, weights, Colab notebook, and paper are all open source:
 **https://huggingface.co/eulogik/nanoforecast-v05**
 
-*More details in the next post of this series — including the story behind the three pipeline fixes that were silently costing us 46.6%.*
+*More details in the next post of this series — including the story behind the three pipeline fixes that were silently costing us 43.8%.*

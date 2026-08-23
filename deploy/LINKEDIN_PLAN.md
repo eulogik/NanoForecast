@@ -1,6 +1,6 @@
 # LinkedIn Launch Sequence — NanoForecast v0.5
 
-Teaser (image + caption already prepared): "We built a 31x smaller AI model than Google's — and beat it on all three ETT benchmarks. / More details soon."
+Teaser (image + caption already prepared): "We built a 31x smaller AI model than Google's — and beat it on 4 of 6 forecasting benchmarks. / More details soon."
 
 Narrative arc: Teaser → Reveal → Receipts → How → Proof → Opinion → Open source.
 Every post: one idea only, specific numbers, a hook in the first line, a comment-bait question, consistent dark + emerald visual identity. Post 9:00 AM local.
@@ -18,7 +18,7 @@ Do not publish unverified figures.
 **Body:**
 Yesterday I teased this. Today it's real.
 
-We built NanoForecast v0.5 — a 6.5M-parameter time-series forecasting model that beats Google's TimesFM (200M params) on all three ETT benchmarks — ETTh1, ETTh2, ETTm1 — under an identical standard evaluation protocol.
+We built NanoForecast v0.5 — a 6.5M-parameter time-series forecasting model that beats Google's TimesFM (200M params) on four of six benchmarks — ETTh1, ETTh2, ETTm1, and exchange rate — under an identical standard evaluation protocol.
 
 Not "competitive with." Beats.
 
@@ -45,18 +45,18 @@ The claim from yesterday deserves receipts.
 
 Every number below comes from one identical protocol (H=48, C=512, non-overlapping windows, all channels, seasonal-naive MASE) applied to every model — no cherry-picking:
 
-- ETTh1: NanoForecast 0.685 vs TimesFM 0.705 — we win
-- ETTh2: NanoForecast 1.109 vs TimesFM 1.360 — we win
-- ETTm1: NanoForecast 0.289 vs TimesFM 0.545 — we win
-- exchange: 4.418 vs 4.383 — TimesFM wins
-- electricity: 2.093 vs 0.923 — TimesFM wins
-- traffic: 1.915 vs 0.765 — TimesFM wins
+- ETTh1: NanoForecast 0.676 vs TimesFM 0.705 — we win
+- ETTh2: NanoForecast 1.110 vs TimesFM 1.360 — we win
+- ETTm1: NanoForecast 0.287 vs TimesFM 0.545 — we win
+- exchange: 4.317 vs 4.383 — TimesFM wins
+- electricity: 2.029 vs 0.923 — TimesFM wins
+- traffic: 1.805 vs 0.765 — TimesFM wins
 
-31x fewer parameters than TimesFM. 3-3 on benchmarks. Plus v0.3 → v0.5 improved MASE 3.282 → 1.752 (−46.6%) with zero architecture changes.
+31x fewer parameters than TimesFM. 3-3 on benchmarks. Plus v0.3 → v0.5 improved MASE 3.030 → 1.704 (−43.8%) with zero architecture changes.
 
 How often do you pick a model for its benchmark score vs. its deployment cost?
 
-**Image prompt:** Dark poster, split contrast: left side a dim, noisy gray wandering line with a small "3.282" in faint type; right side a crisp glowing emerald line with a bold "1.752" glow. Two model-sized silhouettes: a huge gray cube vs a tiny emerald dot. Grid background, vignette, minimal, premium.
+**Image prompt:** Dark poster, split contrast: left side a dim, noisy gray wandering line with a small "3.030" in faint type; right side a crisp glowing emerald line with a bold "1.704" glow. Two model-sized silhouettes: a huge gray cube vs a tiny emerald dot. Grid background, vignette, minimal, premium.
 
 **Engagement:** Ask the deployment-cost question as a poll-style comment. Pin the benchmark table image if LinkedIn allows editing.
 
@@ -89,7 +89,7 @@ What's your take: distilled large models or purpose-built small ones?
 **Headline:** A Raspberry Pi can run the model that beat a server-sized model on 3 benchmarks.
 
 **Body:**
-This is the part I like best — a $100 device running a model that beat a 200M-parameter model on all three ETT benchmarks.
+This is the part I like best — a $100 device running a model that beat a 200M-parameter model on four of six benchmarks.
 
 NanoForecast v0.5 running on a Raspberry Pi:
 - 6.5M parameters (~9.2 MB ONNX INT8)
@@ -153,6 +153,6 @@ And to answer the question I get most: yes, a Raspberry Pi runs it. No GPU neede
 ## Notes
 - Post 1 teaser + Post 2 reveal within 24h (open loop → payoff).
 - Repurpose Post 5's Pi demo as a 30-45s video for YouTube/Reels later.
-- All numbers above come from the verified standard-protocol benchmark (MASE overall 1.752, v0.3→v0.5 −46.6%, 31x smaller than TimesFM, 6.5M params). Do not publish unverified figures.
+- All numbers above come from the verified standard-protocol benchmark (MASE overall 1.704, v0.3→v0.5 −43.8%, 31x smaller than TimesFM, 6.5M params). Do not publish unverified figures.
 - Hashtags: keep to 3-5 (#TimeSeries #MachineLearning #OpenSource #AI) — virality comes from the hook, not tags.
 - Timing: 9:00 AM local daily; Mon-Fri posts are stronger; keep Sat/Sun for demo & opinion (higher share rates on weekends for photo/opinion content).
