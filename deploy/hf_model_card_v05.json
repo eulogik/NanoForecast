@@ -1,0 +1,109 @@
+{
+  "model_name": "NanoForecast",
+  "version": "0.5",
+  "model_type": "nanoforecast",
+  "task": "time-series-forecasting",
+  "framework": "pytorch",
+  "license": "apache-2.0",
+  "profile": "d96-L8",
+  "params": 6518104,
+  "config": {
+    "context_length": 512,
+    "prediction_length": 48,
+    "d_model": 96,
+    "num_layers": 8,
+    "patch_size": 8,
+    "expansion_factor": 2,
+    "use_dart_norm": false,
+    "multi_horizon": false,
+    "quantiles": [
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9
+    ]
+  },
+  "training": {
+    "datasets": [
+      "ETTh1",
+      "ETTh2",
+      "ETTm1",
+      "exchange_rate",
+      "electricity",
+      "traffic"
+    ],
+    "synthetic_records": 10000,
+    "epochs": 200,
+    "lr": 3e-05,
+    "batch_size": 128,
+    "best_epoch": 51,
+    "best_val_loss": 0.2204,
+    "wall_time_s": 43750,
+    "loss": "MultiTaskLoss (point + quantile + anomaly + smooth)",
+    "dart_norm": false,
+    "multi_horizon": false,
+    "gpu": "Colab T4"
+  },
+  "benchmark": {
+    "protocol": "benchmark_standard.py",
+    "context": 512,
+    "horizon": 48,
+    "overall_mase": 1.704,
+    "datasets": {
+      "ETTh1": {
+        "mase": 0.676,
+        "smape": 16.63,
+        "coverage_p50": 0.492,
+        "coverage_p90": 0.693
+      },
+      "ETTh2": {
+        "mase": 1.11,
+        "smape": 10.41,
+        "coverage_p50": 0.375,
+        "coverage_p90": 0.616
+      },
+      "ETTm1": {
+        "mase": 0.287,
+        "smape": 7.56,
+        "coverage_p50": 0.444,
+        "coverage_p90": 0.726
+      },
+      "exchange_rate": {
+        "mase": 4.317,
+        "smape": 3.28,
+        "coverage_p50": 0.503,
+        "coverage_p90": 0.772
+      },
+      "electricity": {
+        "mase": 2.029,
+        "smape": 23.08,
+        "coverage_p50": 0.443,
+        "coverage_p90": 0.746
+      },
+      "traffic": {
+        "mase": 1.805,
+        "smape": 57.6,
+        "coverage_p50": 0.47,
+        "coverage_p90": 0.731
+      }
+    }
+  },
+  "deployment": {
+    "inference_ms": 19.5,
+    "onnx_int8_mb": 9.2,
+    "onnx_fp32_mb": 27.9,
+    "safetensors_mb": 26.1,
+    "platforms": [
+      "cpu",
+      "gpu",
+      "onnx",
+      "raspberry-pi",
+      "browser",
+      "docker"
+    ]
+  },
+  "arxiv": "2608.14658",
+  "github": "https://github.com/eulogik/NanoForecast",
+  "website": "https://eulogik.com"
+}

@@ -78,14 +78,17 @@ def seasonal_naive_scale(train: np.ndarray, s: int) -> float:
 
 def aggregate(results: List[Dict]) -> Dict[str, float]:
     """Mean over windows per series, then mean over series."""
-    keys = ["mase", "mae", "mse", "smape", "crps"]
+    keys = ["mase", "mae", "mse", "smape", "crps",
+            "coverage_0.10", "coverage_0.25", "coverage_0.50",
+            "coverage_0.75", "coverage_0.90"]
     series_means = {k: [] for k in keys}
     for r in results:
         if not r:
             continue
         for k in keys:
-            vals = np.array([w[k] for w in r], dtype=np.float64)
-            series_means[k].append(float(np.mean(vals)))
+            vals = np.array([w[k] for w in r if k in w], dtype=np.float64)
+            if vals.size:
+                series_means[k].append(float(np.mean(vals)))
     return {k: float(np.mean(v)) for k, v in series_means.items() if v}
 
 
@@ -291,12 +294,15 @@ def run_model(model, datasets: List[str], batch_size: int) -> Dict:
                             d = target - q[i][k]
                             crps += float(np.mean(np.maximum(ql * d, (ql - 1.0) * d)))
                         crps = 2.0 * crps / len(levels)
+                        cov = {f"coverage_{ql:.2f}": float(np.mean(target <= q[i][k]))
+                               for k, ql in enumerate(levels)}
                     else:
                         # deterministic point forecast: CRPS of a Dirac delta
                         # at the forecast equals the absolute error
                         crps = mae
+                        cov = {}
                     all_windows.append({"mase": mae / scale, "mae": mae, "mse": mse,
-                                        "smape": smape, "crps": crps})
+                                        "smape": smape, "crps": crps, **cov})
                     n_windows += 1
         results[ds] = {"metrics": aggregate([all_windows]), "windows": n_windows,
                        "series": len(series_list), "seconds": round(time.time() - t0, 1)}

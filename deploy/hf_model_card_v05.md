@@ -45,7 +45,7 @@ datasets:
 
 ### World's Most Deployable Time Series Transformer
 
-**6.5M parameters · CPU inference · Raspberry Pi · ONNX · Streaming**
+**6.5M parameters · CPU inference · ONNX · Streaming · Edge/ARM**
 
 [![Hugging Face](https://img.shields.io/badge/🤗-Hugging%20Face-FFD21E?style=for-the-badge)](https://huggingface.co/eulogik/nanoforecast-v05)
 [![GitHub](https://img.shields.io/badge/GitHub-eulogik%2FNanoForecast-181717?style=for-the-badge&logo=github)](https://github.com/eulogik/NanoForecast)
@@ -68,7 +68,7 @@ identical protocol.
 
 | Dataset | NanoForecast v0.5 (6.5M) | TimesFM (200M) | PatchTST (15M+) |
 |---:|---:|---:|---:|
-| ETTh1 | **0.681** | 0.705 | 0.781 |
+| ETTh1 | **0.676** | 0.705 | 0.781 |
 | ETTh2 | **1.110** | 1.360 | 1.467 |
 | ETTm1 | **0.287** | 0.545 | 0.488 |
 | exchange_rate | **4.317** | 4.383 | **3.861** |
@@ -170,9 +170,9 @@ electricity, and traffic.
 | **Hidden dim / layers** | 96 / 8 |
 | **Quantiles** | p10, p25, p50, p75, p90 |
 | **Quantile head** | Monotonic (guarantees p10 ≤ p25 ≤ p50 ≤ p75 ≤ p90) |
-| **Decomposition** | trend + seasonal + residual ≡ point forecast (conservation identity) |
+| **Decomposition** | trend + seasonal + residual ≡ point-head output (conservation identity) |
 | **Streaming** | Stateful DeltaNet RNN — feed one value at a time |
-| **Deployment** | ONNX (FP32 + INT8), FastAPI, Docker, Raspberry Pi, Browser |
+| **Deployment** | ONNX (FP32 + INT8), FastAPI, Docker, Browser |
 
 ---
 
@@ -292,10 +292,10 @@ Upload a CSV → get a forecast + prediction intervals + decomposition plot. No 
 |:---|:---|
 | **Robust to outliers** | Instance Robust Scaler (median / IQR) — not sensitive to extreme values |
 | **Monotonic quantiles** | Monotonic constraint on quantile head: p10 ≤ p25 ≤ p50 ≤ p75 ≤ p90 always |
-| **Conservation** | trend + seasonal + residual ≡ point forecast (exact, not approximate) |
+| **Conservation** | trend + seasonal + residual ≡ point-head output (exact, not approximate) |
 | **Multi-task learning** | Point forecast + quantiles + anomaly detection + smoothness in single forward pass |
-| **Streaming** | DeltaNet RNN maintains recurrent state across calls — no other TS model does this |
-| **Deployable** | ONNX export, FastAPI server, Docker, Raspberry Pi, browser (ONNX.js) |
+| **Streaming** | DeltaNet RNN maintains recurrent state across calls — uncommon among window-based forecasters |
+| **Deployable** | ONNX export (CPU/edge/ARM), FastAPI server, Docker, browser (ONNX.js) |
 
 ---
 
@@ -329,18 +329,20 @@ Upload a CSV → get a forecast + prediction intervals + decomposition plot. No 
 
 ## 📊 Coverage Analysis
 
-Well-calibrated uncertainty estimates (measured under the internal `benchmark.py` protocol,
-see `standard_benchmark.json`):
+Measured under the standard protocol (`benchmark_standard.py`, `results/standard_benchmark.json`;
+empirical P(target ≤ predicted quantile), mean across the six datasets):
 
-| Quantile | Target | Actual (mean across datasets) |
+| Quantile | Target | Measured |
 |:---|---:|---:|
-| p10 | 10% | 5.4% |
-| p25 | 25% | 19.1% |
-| p50 | 50% | 49.4% |
-| p75 | 75% | 79.9% |
-| p90 | 90% | 94.5% |
+| p10 | 10% | 20.1% |
+| p25 | 25% | 30.8% |
+| p50 | 50% | 45.4% |
+| p75 | 75% | 59.5% |
+| p90 | 90% | 71.4% |
 
-The p50 and p90 coverage are close to target, providing reliable uncertainty quantification.
+**Honest note**: predicted intervals are narrower than nominal under this protocol — the p10–p90
+band covers 51% of held-out values (target 80%). Quantiles are best read as *relative* uncertainty
+signals rather than calibrated probabilities; point forecasts (p50) are unaffected.
 
 ---
 
@@ -352,7 +354,7 @@ The p50 and p90 coverage are close to target, providing reliable uncertainty qua
 | **CPU inference** | ✅ | ❌ | ⚠️ | ❌ |
 | **Streaming** | ✅ | ❌ | ❌ | ❌ |
 | **ONNX export** | ✅ | ❌ | ❌ | ❌ |
-| **Raspberry Pi** | ✅ | ❌ | ❌ | ❌ |
+| **Edge/ARM via ONNX** | ✅ | ❌ | ❌ | ❌ |
 | **Quantiles** | ✅ (5) | ❌ | ✅ | ✅ |
 | **Train from CSV** | ✅ | ❌ | ❌ | ⚠️ |
 | **License** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |

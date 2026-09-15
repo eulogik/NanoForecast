@@ -39,11 +39,7 @@ MASE_V03 = [0.681, 1.328, 0.288, 11.758, 2.213, 1.913]
 MASE_TFM = [0.705, 1.360, 0.545, 4.383, 0.923, 0.765]
 MASE_PTST = [0.781, 1.467, 0.488, 3.861, 1.347, 1.379]
 
-PARAMS_M = {"NanoForecast v0.5": 6.5, "PatchTST": 15, "TimesFM": 200, "Chronos-T5": 8}
-EFFICIENCY = {"NanoForecast v0.5": 0.088, "PatchTST": 0.043, "TimesFM": 0.0035, "Chronos-T5": 0.062}
-
-LATENCY_MS = {"NanoForecast v0.5 (PyTorch)": 19.5, "NanoForecast v0.5 (ONNX)": 10.7,
-              "TimesFM (GPU)": 45.0, "Chronos-T5 (GPU)": 120.0, "PatchTST (GPU)": 30.0}
+PARAMS_M = {"NanoForecast v0.5": 6.5, "PatchTST": 15, "TimesFM": 200}
 
 OUTDIR = os.path.dirname(__file__)
 
@@ -100,7 +96,7 @@ def chart_params():
     """Parameter count (log scale) — visual scale shock."""
     names = list(PARAMS_M.keys())
     vals = list(PARAMS_M.values())
-    colors = [NF_COLOR, PTST_COLOR, TFM_COLOR, "#6B7280"]
+    colors = [NF_COLOR, PTST_COLOR, TFM_COLOR]
     fig, ax = plt.subplots(figsize=(10, 5.5))
     _style_ax(ax, "Model Size (log scale) — NanoForecast is 31× smaller", "Parameters (millions)", ylim=(1, 1000))
     bars = ax.bar(names, vals, color=colors, edgecolor="white", width=0.6, log=True)
@@ -116,10 +112,10 @@ def chart_params():
 
 def chart_efficiency_scatter():
     """Efficiency scatter: x=log(params), y=overall MASE — lower-left is best."""
-    models = ["NanoForecast v0.5", "PatchTST", "Chronos-T5", "TimesFM"]
+    models = ["NanoForecast v0.5", "PatchTST", "TimesFM"]
     params = [PARAMS_M[m] for m in models]
-    mase = [1.704, 1.554, 1.447, 1.447]  # overall MASE
-    colors = [NF_COLOR, PTST_COLOR, "#6B7280", TFM_COLOR]
+    mase = [1.704, 1.554, 1.447]  # overall MASE, all measured by us
+    colors = [NF_COLOR, PTST_COLOR, TFM_COLOR]
 
     fig, ax = plt.subplots(figsize=(10, 6.5))
     _style_ax(ax, "Parameter Efficiency — closer to origin = better", "Overall MASE (lower = better)", ylim=(1.0, 2.2))
@@ -131,11 +127,11 @@ def chart_efficiency_scatter():
         ax.annotate(f"{m}\n{p}M", (p, s), textcoords="offset points",
                     xytext=(0, -28 if c != NF_COLOR else -34),
                     ha="center", fontsize=9.5, fontweight="bold",
-                    color=c if c != "#6B7280" else "#374151")
+                    color=c)
 
-    # Highlight NanoForecast as best efficiency
-    ax.annotate("Best efficiency:\n31× smaller than TimesFM,\nsame-tier accuracy",
-                xy=(6.5, 1.704), xytext=(25, 1.9),
+    # Highlight NanoForecast efficiency
+    ax.annotate("31× smaller than TimesFM,\n26× more parameter-efficient",
+                xy=(6.5, 1.704), xytext=(20, 1.85),
                 fontsize=10, color=NF_COLOR, fontweight="bold",
                 arrowprops=dict(arrowstyle="->", color=NF_COLOR, lw=1.5))
     ax.grid(True, which="both", linestyle="-", alpha=0.3, color=GRID_COLOR)
@@ -183,14 +179,14 @@ def chart_v03_vs_v05():
 
 
 def chart_coverage():
-    """Quantile calibration: target vs actual coverage (lower error = better)."""
+    """Quantile calibration: target vs measured coverage (standard protocol)."""
     targets = [0.1, 0.25, 0.5, 0.75, 0.9]
-    # From standard_benchmark.json v0.5 (mean across datasets)
-    actual = [0.054, 0.191, 0.494, 0.799, 0.945]
-    err = [abs(t - a) for t, a in zip(targets, actual)]
+    # Measured under benchmark_standard.py, mean across the six datasets
+    # (results/standard_benchmark.json, coverage_* metrics).
+    actual = [0.201, 0.308, 0.455, 0.595, 0.714]
 
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    _style_ax(ax, "Quantile Calibration — predicted vs actual coverage", "Coverage", ylim=(0, 1.0))
+    _style_ax(ax, "Quantile Coverage — target vs measured (standard protocol)", "Coverage", ylim=(0, 1.0))
     x = np.arange(len(targets))
     w = 0.35
     ax.bar(x - w/2, targets, w, label="Target", color="#9CA3AF", edgecolor="white")
@@ -200,9 +196,11 @@ def chart_coverage():
     ax.set_xticks(x)
     ax.set_xticklabels([f"p{int(t*100)}" for t in targets], fontweight="bold")
     ax.legend(fontsize=10, loc="upper left", framealpha=0.95, edgecolor=GRID_COLOR)
-    ax.text(0.02, 0.92, "Well-calibrated: p50 error 1.2%, p90 error 4.5%",
-            transform=ax.transAxes, fontsize=10.5, fontweight="bold", color=WIN_COLOR)
-    plt.tight_layout()
+    fig.text(0.5, 0.015,
+             "Intervals are narrower than nominal: the p10–p90 band covers 51% of held-out values "
+             "(target 80%). Quantiles are best read as relative uncertainty signals.",
+             ha="center", fontsize=10, fontweight="bold", color="#B45309")
+    plt.tight_layout(rect=(0, 0.06, 1, 1))
     out = os.path.join(OUTDIR, "card_coverage.png")
     plt.savefig(out, dpi=200, bbox_inches="tight")
     plt.close()
@@ -210,20 +208,18 @@ def chart_coverage():
 
 
 def chart_latency():
-    """Inference latency comparison (log scale)."""
-    names = list(LATENCY_MS.keys())
-    vals = list(LATENCY_MS.values())
-    colors = [NF_COLOR, "#F59E0B", TFM_COLOR, "#6B7280", PTST_COLOR]
+    """Measured inference latency (Apple M4 CPU) — measured configurations only."""
+    names = ["PyTorch FP32\nfull inference", "ONNX Runtime\nFP32", "ONNX Runtime\nINT8", "Streaming\nupdate"]
+    vals = [19.5, 10.7, 33.3, 19.1]
+    colors = [NF_COLOR, "#F59E0B", "#6B7280", "#10B981"]
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
-    _style_ax(ax, "Inference Latency (lower = better, log scale)", "Latency (ms)")
-    ax.set_xscale("log")
-    ax.set_xlim(8, 300)
-    bars = ax.barh(names, vals, color=colors, edgecolor="white", height=0.6)
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    _style_ax(ax, "Measured Inference Latency — Apple M4 CPU (batch 1, context 512, H=48)", "Latency (ms)")
+    bars = ax.bar(names, vals, color=colors, edgecolor="white", width=0.55)
     for bar, v in zip(bars, vals):
-        ax.text(v * 1.15, bar.get_y() + bar.get_height()/2, f"{v:.1f}ms",
-                va="center", fontsize=10, fontweight="bold", color="#374151")
-    ax.invert_yaxis()
+        ax.text(bar.get_x() + bar.get_width()/2, v + 0.8, f"{v:.1f}ms",
+                ha="center", fontsize=11, fontweight="bold", color="#374151")
+    ax.set_ylim(0, 38)
     plt.tight_layout()
     out = os.path.join(OUTDIR, "card_latency.png")
     plt.savefig(out, dpi=200, bbox_inches="tight")
@@ -274,23 +270,23 @@ def chart_architecture():
     ax.text(6, 9.5, "NanoForecast v0.5 Architecture", ha="center", fontsize=16, fontweight="bold", color="#1F2937")
 
     # Input
-    box(4.5, 8.4, 3, 0.8, "Context (512 steps)\n+ freq_id covariate", NF_COLOR)
+    box(4.5, 8.4, 3, 0.8, "Context (512 steps)\n+ frequency prefix", NF_COLOR)
 
     # Scaler + patch
     box(1.5, 7.0, 3.5, 0.9, "Instance Robust Scaler\n(median / IQR)", "#2563EB")
-    box(7.0, 7.0, 3.5, 0.9, "Adaptive Patching\n(patch_size=8)", "#2563EB")
+    box(7.0, 7.0, 3.5, 0.9, "Patching\n(patch_size=8)", "#2563EB")
 
     # Mixing block
     ax.add_patch(FancyBboxPatch((2.5, 3.8), 7, 2.6, boxstyle="round,pad=0.1,rounding_size=0.15",
                                 linewidth=2, edgecolor=NF_COLOR, facecolor=NF_COLOR + "10"))
     ax.text(6, 6.1, "Sequence Mixing Block × 8", ha="center", fontsize=12, fontweight="bold", color=NF_COLOR)
 
-    box(3.0, 4.4, 2.2, 0.9, "LongConv\n(kernel=65)", "#8B5CF6")
-    box(5.4, 4.4, 2.2, 0.9, "DeltaNet RNN\n(state=64)", "#8B5CF6")
-    box(7.8, 4.4, 2.0, 0.9, "Gated Router\n+ GatedMLP", "#8B5CF6")
+    box(3.0, 4.4, 2.0, 0.9, "LongConv\n(kernel=65)", "#8B5CF6")
+    box(5.2, 4.4, 2.0, 0.9, "DeltaNet RNN\n(state 96×96)", "#8B5CF6")
+    box(7.4, 4.4, 2.0, 0.9, "Gated Router\n+ GatedMLP", "#8B5CF6")
 
     # Heads
-    box(1.5, 2.0, 2.5, 1.0, "Point Forecast\n(d_model→1)", "#10B981")
+    box(1.5, 2.0, 2.5, 1.0, "Point Forecast\n(patch tokens→48)", "#10B981")
     box(4.3, 2.0, 2.5, 1.0, "Monotonic Quantiles\n(p10–p90, 5)", "#10B981")
     box(7.1, 2.0, 2.5, 1.0, "Anomaly + Decomp\n(3 components)", "#10B981")
 
@@ -302,13 +298,10 @@ def chart_architecture():
     ax.annotate("", xy=(3.25, 7.0), xytext=(5.25, 8.4), arrowprops=dict(arrowstyle="-|>", color="#374151"))
     ax.annotate("", xy=(8.75, 7.0), xytext=(6.75, 8.4), arrowprops=dict(arrowstyle="-|>", color="#374151"))
     ax.annotate("", xy=(6, 6.4), xytext=(6, 7.9), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(4.1, 3.8), xytext=(3.25, 5.3), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(6.5, 3.8), xytext=(6.5, 5.3), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(8.8, 3.8), xytext=(8.8, 5.3), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(2.75, 2.0), xytext=(4.0, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(5.5, 2.0), xytext=(6, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(8.35, 2.0), xytext=(8.0, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
-    ax.annotate("", xy=(6, 0.5), xytext=(6, 2.0), arrowprops=dict(arrowstyle="-|>", color="#059669"))
+    ax.annotate("", xy=(2.75, 3.0), xytext=(4.1, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
+    ax.annotate("", xy=(5.5, 3.0), xytext=(6.2, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
+    ax.annotate("", xy=(8.35, 3.0), xytext=(8.3, 3.8), arrowprops=dict(arrowstyle="-|>", color="#374151"))
+    ax.annotate("", xy=(6, 1.4), xytext=(6, 2.0), arrowprops=dict(arrowstyle="-|>", color="#059669"))
 
     # Params note
     ax.text(6, 10.2, "6.5M parameters · 19.5ms CPU inference · ONNX-ready", ha="center",

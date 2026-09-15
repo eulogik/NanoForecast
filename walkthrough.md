@@ -167,21 +167,25 @@ which is not directly comparable to published leaderboards or to TimesFM. So we 
 
 | Dataset | NF-v0.5 | TimesFM-200M | PatchTST | Chronos |
 |---|---|---|---|---|
-| ETTh1   | **0.681** | 0.705  | 0.781 | stalled |
+| ETTh1   | **0.676** | 0.705  | 0.781 | stalled |
 | ETTh2   | **1.110** | 1.360  | 1.467 | stalled |
 | ETTm1   | **0.287** | 0.545  | 0.488 | stalled |
 | exchange_rate | **4.317** | 4.383 | **3.861** | stalled |
 | electricity | 2.029 | **0.923** | 1.347 | stalled |
 | traffic  | 1.805 | **0.765** | 1.379 | stalled |
 
-**Read honestly**: NF-v0.5 **beats TimesFM on 4 of 6 sets** (all three ETT plus exchange) (−3% ETTh1, −18% ETTh2,
-−47% ETTm1) and **ties exchange_rate** — but **loses big on high-cardinality
+**Read honestly**: NF-v0.5 **beats TimesFM on 4 of 6 sets** (all three ETT plus exchange) (−4% ETTh1, −18% ETTh2,
+−47% ETTm1; the exchange margin is small at −1.5%) — but **loses big on high-cardinality
 multivariate sets: electricity and traffic**. This is the race between NF's solidness
 (depth on ETT/exchange) and TimesFM's trained-on-everything breadth (electricity/traffic).
 
 PatchTST (official config, channel-independent, trained 40 epochs on free T4 Colab):
-beats NF-v0.5 only on exchange_rate; beats TimesFM on ETTm1 and exchange_rate;
-the trained model reproduces an honest level-following baseline on the rest.
+beats NF-v0.5 on exchange_rate, electricity, and traffic; beats TimesFM on ETTm1 and exchange_rate.
+
+**Calibration (measured)**: under this protocol the predicted quantiles are narrower than
+nominal — the p10–p90 band covers 51.3% of held-out values (target 80%). Quantiles are best
+read as relative uncertainty signals; the p50 point forecast is unaffected. See the
+`coverage_*` metrics in `results/standard_benchmark.json`.
 
 
 Why NF loses on the big two: v0.5 was trained with `max_channels=4` per dataset

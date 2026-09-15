@@ -59,7 +59,7 @@ We present NanoForecast v0.5, a lightweight time series forecasting model (6.5M 
 \section{Introduction}
 \label{sec:intro}
 
-Time series forecasting is fundamental to numerous domains including energy management~\cite{ett}, financial modeling~\cite{finance_review}, and supply chain optimization~\cite{supply_chain}. Recent advances in foundation models---TimesFM~\cite{timesfm} (200M parameters), Chronos~\cite{chronos} (710M parameters), and PatchTST~\cite{patchtst} (15M+ parameters)---have demonstrated strong performance on standard benchmarks. However, these models require significant computational resources for both training and inference, limiting their accessibility for practitioners without dedicated GPU infrastructure.
+Time series forecasting is fundamental to numerous domains including energy management~\cite{ett}, financial modeling~\cite{finance_review}, and supply chain optimization~\cite{supply_chain}. Recent advances in foundation models and long-sequence architectures---TimesFM~\cite{timesfm} (200M parameters), Chronos~\cite{chronos} (up to 710M parameters), and PatchTST~\cite{patchtst} (15M+ parameters)---have demonstrated strong performance on standard benchmarks. However, these models require significant computational resources for both training and inference, limiting their accessibility for practitioners without dedicated GPU infrastructure.
 
 We address a complementary problem: \emph{deployable time series forecasting}. The objective is to achieve competitive accuracy while remaining trainable on consumer hardware and deployable on resource-constrained devices. This requires balancing accuracy, model size, and deployment flexibility---a tradeoff that large foundation models do not currently address.
 
@@ -266,7 +266,7 @@ The three fixes were validated jointly; the released v0.3 and v0.5 checkpoints b
 \item \textbf{Traffic}~\cite{traffic}: Hourly road occupancy rates from 862 sensors on San Francisco Bay Area freeways (2015--2016). All 862 sensors are evaluated.
 \end{itemize}
 
-The ETT datasets use the standard train/validation/test temporal splits of 70\%/20\%/10\% ; Exchange, Electricity, and Traffic use the standard 7:1:2 splits (70\%/10\%/20\%).
+The ETT datasets use the standard train/validation/test temporal splits of 70\%/20\%/10\%; Exchange, Electricity, and Traffic use the standard 7:1:2 splits (70\%/10\%/20\%).
 
 \textbf{Model configuration.} $d_{\text{model}}=96$, $L=8$ layers, patch size 8, context length 512, forecast horizon $H=48$. Total parameters: 6.5M (identical architecture for v0.3 and v0.5).
 
@@ -364,7 +364,7 @@ $\Delta$ (lower better) & $-0.7\%$ & $-16.4\%$ & $-0.2\%$ & $-63.3\%$ & $-8.3\%$
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:ablation} shows the end-to-end effect of the three remediations applied jointly: overall MASE improves from 3.030 to 1.704 (43.8\% relative), with improvements on all six datasets. The largest single gain is on exchange rate ($-63.3\%$), followed by ETTh2 ($-16.4\%$); the smallest are on ETTm1 ($-0.2\%$) and ETTh1 ($-0.7\%$), essentially at parity. Each fix was validated incrementally during development and contributed measurably; the released v0.3 and v0.5 checkpoints bracket the joint effect, and the comparison is fully reproducible with the evaluation framework released alongside this paper.
+Table~\ref{tab:ablation} shows the end-to-end effect of the three remediations applied jointly: overall MASE improves from 3.030 to 1.704 (43.8\% relative), with improvements on all six datasets. The largest single gain is on exchange rate ($-63.3\%$), followed by ETTh2 ($-16.4\%$); the smallest are on ETTm1 ($-0.2\%$) and ETTh1 ($-0.7\%$), essentially at parity. The three fixes were validated jointly; the released v0.3 and v0.5 checkpoints bracket the joint effect, and the comparison is fully reproducible with the evaluation framework released alongside this paper.
 
 \subsection{Inference Performance}
 \label{sec:inference}
@@ -385,6 +385,30 @@ Streaming update                & 19.1\,ms & \texttt{predict\_step()}, stateful 
 \end{tabular}
 \end{table}
 
+\subsection{Quantile Calibration}
+\label{sec:calibration}
+
+Beyond point accuracy, we measure the empirical coverage of the predicted quantiles under the same protocol: for each test step we record whether the realized value falls at or below the predicted quantile, and average across steps, windows, and datasets. Table~\ref{tab:calibration} reports the results. Under this protocol, the v0.5 intervals are narrower than nominal: the nominal 80\% band (p10--p90) covers 51.3\% of held-out values, whereas the v0.3 band (from the same architecture trained with the original pipeline) covers 90.3\%. We therefore recommend treating v0.5 quantiles as \emph{relative} uncertainty signals (e.g., ranking forecast steps by uncertainty) rather than calibrated probabilities; the $p_{50}$ point forecast, which underlies all accuracy results in this paper, is unaffected.
+
+\begin{table}[t]
+\centering
+\caption{Empirical quantile coverage under the standard protocol (mean across the six datasets), with nominal targets for reference. Both checkpoints share the identical architecture; the pipeline refinement improved point accuracy (Table~\ref{tab:ablation}) while narrowing the predicted intervals.}
+\label{tab:calibration}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Quantile & Nominal target & v0.5 (all fixes) & v0.3 (original pipeline) \\
+\midrule
+p10         & 0.10 & 0.201 & 0.028 \\
+p25         & 0.25 & 0.308 & 0.119 \\
+p50         & 0.50 & 0.454 & 0.437 \\
+p75         & 0.75 & 0.595 & 0.759 \\
+p90         & 0.90 & 0.714 & 0.931 \\
+p10--p90 band & 0.80 & 0.513 & 0.903 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Model Size}
 
 \begin{figure}[t]
@@ -399,7 +423,7 @@ Streaming update                & 19.1\,ms & \texttt{predict\_step()}, stateful 
     xlabel={Parameters (millions)},
     symbolic y coords={NF, PTST, TFM, CHR},
     ytick=data,
-    yticklabels={NanoForecast (6.5M), PatchTST (15M+), TimesFM (200M), Chronos-T5 (710M)},
+    yticklabels={NanoForecast (6.5M), PatchTST (15M+), TimesFM (200M), Chronos-T5-large (710M)},
     xmin=0,
     xmax=750,
     grid=major,
@@ -410,7 +434,7 @@ Streaming update                & 19.1\,ms & \texttt{predict\_step()}, stateful 
 \addplot[fill=orange!80!white] coordinates {(6.5,NF) (15,PTST) (200,TFM) (710,CHR)};
 \end{axis}
 \end{tikzpicture}
-\caption{Parameter count comparison. NanoForecast v0.5 (6.5M) is 31$\times$ smaller than TimesFM (200M) and 109$\times$ smaller than Chronos-T5 (710M).}
+\caption{Parameter count comparison. NanoForecast v0.5 (6.5M) is 31$\times$ smaller than TimesFM (200M) and 109$\times$ smaller than Chronos-T5-large (710M).}
 \label{fig:params}
 \end{figure}
 
@@ -423,7 +447,7 @@ NanoForecast provides an end-to-end deployment pipeline designed for production 
 \begin{itemize}
 \item \textbf{Installation}: \texttt{pip install nanoforecast} from the GitHub repository (Apache 2.0).\footnote{The package is distributed via \url{https://github.com/eulogik/NanoForecast}; PyPI: \url{https://pypi.org/project/nanoforecast/}.}
 \item \textbf{Custom training}: \texttt{train\_from\_csv.py --csv data.csv --target col --horizon H} trains on user-provided data.
-\item \textbf{Model export}: ONNX export produces a 27.9\,MB FP32 model (9.2\,MB with INT8 quantization). Dynamic INT8 quantization overhead accounts for the latency increase vs.\ FP32.
+\item \textbf{Model export}: ONNX export produces a 27.9\,MB FP32 model (9.2\,MB with INT8 quantization). The INT8 latency increase in Table~\ref{tab:latency} likely reflects dynamic quantization overhead on this CPU.
 \item \textbf{REST API}: FastAPI server; ONNX Runtime CPU inference 10.7\,ms (Apple M4).
 \item \textbf{Containerization}: Dockerfile (builds on ARM64/x86\_64).
 \item \textbf{Interactive demo}: Gradio Space at \url{https://huggingface.co/spaces/eulogik/nanoforecast}.
@@ -473,6 +497,7 @@ We acknowledge several limitations:
 \item \textbf{Accuracy gap}: Overall MASE (1.704 under the standard protocol) remains above the evaluated foundation models.
 \item \textbf{Fixed context}: The 512-timestep context may limit performance on very-long-range dependencies.
 \item \textbf{Univariate}: The model treats each channel independently; cross-channel dependencies are not modeled.
+\item \textbf{Calibration}: Predicted quantile intervals are narrower than nominal under the standard protocol (Section~\ref{sec:calibration}: the 80\% band covers 51.3\%); point forecasts are unaffected. Recalibration or conformal post-processing is left to future work.
 \item \textbf{Dataset coverage}: We evaluated on 6 datasets, all publicly available. Results on other domains (finance, healthcare, climate) may differ.
 \item \textbf{Compute}: Training requires 12 hours on GPU, though inference is CPU-only.
 \item \textbf{Single seeds}: We release one checkpoint per configuration; seed-to-seed variance is not reported.
@@ -484,7 +509,7 @@ We acknowledge several limitations:
 
 We presented NanoForecast v0.5, demonstrating that systematic training pipeline refinement can yield a 43.8\% MASE improvement (standard-protocol 3.030 $\to$ 1.704) without architecture modifications. The model, at 6.5M parameters, outperforms TimesFM (200M) on four of six benchmarks (all three ETT datasets plus exchange rate) and outperforms PatchTST (15M+) on all three ETT sets. Training takes approximately 12 hours on a single T4-class GPU, and inference runs without GPU requirements on edge-class CPUs (measured: 19.5\,ms per forecast on an Apple M4).
 
-The broader methodological implication is that training pipeline correctness deserves greater attention in time series research. Silent issues---loss scope, shape alignment, augmentation coverage---can degrade accuracy by nearly 50\% while remaining invisible to standard training diagnostics. Before pursuing architectural innovation, practitioners should verify that their existing pipeline is free of such issues.
+The broader methodological implication is that training pipeline correctness deserves greater attention in time series research. Silent issues---loss scope, shape alignment, augmentation coverage---can degrade accuracy by more than 40\% while remaining invisible to standard training diagnostics. Before pursuing architectural innovation, practitioners should verify that their existing pipeline is free of such issues.
 
 \subsection{Future Work}
 
@@ -506,7 +531,7 @@ All code, pretrained checkpoints, and the evaluation framework are released unde
 \item Model checkpoints (v0.3, v0.5): \url{https://huggingface.co/eulogik/nanoforecast-v05} and \url{https://huggingface.co/eulogik/nanoforecast-v03}
 \item PatchTST baseline checkpoints: \url{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}
 \item TimesFM checkpoint: \url{https://huggingface.co/google/timesfm-1.0-200m-pytorch}
-\item Standard-protocol results: \texttt{results/standard\_benchmark.json} in the GitHub repository (protocol string included in the file)
+\item Standard-protocol results (including quantile coverage metrics): \texttt{results/standard\_benchmark.json} in the GitHub repository (protocol string included in the file)
 \item Interactive demo: \url{https://huggingface.co/spaces/eulogik/nanoforecast}
 \item Training notebooks (Google Colab, free tier): \texttt{deploy/colab\_training\_v05.ipynb} in the repository
 \end{itemize}

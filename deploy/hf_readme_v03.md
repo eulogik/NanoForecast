@@ -39,10 +39,10 @@ model-index:
       config: h1
     metrics:
     - type: mase
-      value: 1.946
+      value: 0.681
       name: MASE
     - type: smape
-      value: 12.06
+      value: 16.97
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -53,10 +53,10 @@ model-index:
       config: h2
     metrics:
     - type: mase
-      value: 2.741
+      value: 1.328
       name: MASE
     - type: smape
-      value: 10.47
+      value: 12.81
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -67,10 +67,10 @@ model-index:
       config: m1
     metrics:
     - type: mase
-      value: 2.174
+      value: 0.288
       name: MASE
     - type: smape
-      value: 10.70
+      value: 7.48
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -80,10 +80,10 @@ model-index:
       type: exchange-rate
     metrics:
     - type: mase
-      value: 7.442
+      value: 11.758
       name: MASE
     - type: smape
-      value: 1.72
+      value: 9.67
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -93,10 +93,10 @@ model-index:
       type: electricity
     metrics:
     - type: mase
-      value: 1.294
+      value: 2.213
       name: MASE
     - type: smape
-      value: 4.76
+      value: 24.26
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -106,10 +106,10 @@ model-index:
       type: traffic
     metrics:
     - type: mase
-      value: 0.807
+      value: 1.913
       name: MASE
     - type: smape
-      value: 24.00
+      value: 62.07
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -119,10 +119,10 @@ model-index:
       type: multi-dataset
     metrics:
     - type: mase
-      value: 2.734
+      value: 3.030
       name: Overall MASE
     - type: smape
-      value: 10.62
+      value: 22.21
       name: Overall sMAPE (%)
 ---
 
@@ -172,13 +172,13 @@ Standard protocol: context 512, horizon 48, non-overlapping test windows, MASE s
 
 | Dataset | NanoForecast v0.3 (6.5M) | TimesFM (200M) | PatchTST (15M+) |
 |---:|---:|---:|---:|
-| ETTh1 | 1.946 | **0.705** | 0.781 |
-| ETTh2 | 2.741 | **1.360** | 1.467 |
-| ETTm1 | 2.174 | **0.545** | 0.488 |
-| exchange_rate | 7.442 | 4.383 | **3.861** |
-| electricity | 1.294 | 0.923 | **1.347** |
-| traffic | 0.807 | **0.765** | 1.379 |
-| **Overall MASE** | 2.734 | **1.447** | 1.554 |
+| ETTh1 | **0.681** | 0.705 | 0.781 |
+| ETTh2 | **1.328** | 1.360 | 1.467 |
+| ETTm1 | **0.288** | 0.545 | 0.488 |
+| exchange_rate | 11.758 | 4.383 | **3.861** |
+| electricity | 2.213 | **0.923** | 1.347 |
+| traffic | 1.913 | **0.765** | 1.379 |
+| **Overall MASE** | 3.030 | **1.447** | 1.554 |
 
 **v0.3 → v0.5 improvement**: Overall MASE 3.030 → 1.704 (↓43.8%) with same architecture, pipeline fixes only.
 

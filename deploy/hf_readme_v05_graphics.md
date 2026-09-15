@@ -55,10 +55,10 @@ model-index:
       config: h1
     metrics:
     - type: mase
-      value: 0.681
+      value: 0.676
       name: MASE
     - type: smape
-      value: 5.36
+      value: 16.63
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -72,7 +72,7 @@ model-index:
       value: 1.110
       name: MASE
     - type: smape
-      value: 4.52
+      value: 10.41
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -86,7 +86,7 @@ model-index:
       value: 0.287
       name: MASE
     - type: smape
-      value: 3.84
+      value: 7.56
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -99,7 +99,7 @@ model-index:
       value: 4.317
       name: MASE
     - type: smape
-      value: 1.21
+      value: 3.28
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -112,7 +112,7 @@ model-index:
       value: 2.029
       name: MASE
     - type: smape
-      value: 1.57
+      value: 23.08
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -125,7 +125,7 @@ model-index:
       value: 1.805
       name: MASE
     - type: smape
-      value: 54.08
+      value: 57.60
       name: sMAPE (%)
   - task:
       type: time-series-forecasting
@@ -138,7 +138,7 @@ model-index:
       value: 1.704
       name: Overall MASE
     - type: smape
-      value: 11.76
+      value: 19.76
       name: Overall sMAPE (%)
 ---
 
@@ -148,7 +148,7 @@ model-index:
 
 ### 6.5M-Parameter Time Series Foundation Model — Deploy Anywhere
 
-**CPU inference · Raspberry Pi · ONNX · Streaming · Quantile forecasts**
+**CPU inference · ONNX · Streaming · Quantile forecasts · Edge/ARM**
 
 [![Hugging Face Downloads](https://img.shields.io/badge/🤗%20Downloads-111-blue?style=flat-square)](https://huggingface.co/eulogik/nanoforecast-v05)
 [![GitHub](https://img.shields.io/badge/GitHub-eulogik%2FNanoForecast-181717?style=flat-square&logo=github)](https://github.com/eulogik/NanoForecast)
@@ -165,7 +165,7 @@ model-index:
 
 ## What is NanoForecast?
 
-NanoForecast is a **6.5M-parameter time series foundation model** that runs inference on CPUs, Raspberry Pi, edge devices, and in the browser. It performs **zero-shot forecasting** on unseen time series without fine-tuning, producing point forecasts with quantile uncertainty bounds (p10–p90).
+NanoForecast is a **6.5M-parameter time series foundation model** that runs inference on CPUs and, via ONNX, on edge/ARM devices and in the browser. It performs **zero-shot forecasting** on unseen time series without fine-tuning, producing point forecasts with quantile uncertainty bounds (p10–p90).
 
 Unlike 200M+ parameter alternatives (TimesFM, Chronos), NanoForecast is designed for **deployment constraints**: 19.5ms CPU inference, ONNX export (9.2MB INT8), streaming RNN mode, and Apache 2.0 license. It matches or beats TimesFM on 4 of 6 standard benchmarks at **31x fewer parameters**.
 
@@ -190,7 +190,7 @@ Standard protocol: context 512, horizon 48, non-overlapping test windows, MASE s
 
 | Dataset | NanoForecast v0.5 (6.5M) | TimesFM (200M) | PatchTST (15M+) |
 |---:|---:|---:|---:|
-| ETTh1 | **0.681** | 0.705 | 0.781 |
+| ETTh1 | **0.676** | 0.705 | 0.781 |
 | ETTh2 | **1.110** | 1.360 | 1.467 |
 | ETTm1 | **0.287** | 0.545 | 0.488 |
 | exchange_rate | **4.317** | 4.383 | 3.861 |
@@ -204,7 +204,7 @@ Standard protocol: context 512, horizon 48, non-overlapping test windows, MASE s
 
 ### Parameter Efficiency
 
-NanoForecast achieves **36x better efficiency** (MASE per billion parameters) than TimesFM and is **2x more efficient** than PatchTST.
+NanoForecast achieves **26x better parameter efficiency** (MASE$^{-1}$ per parameter) than TimesFM and is **2x more efficient** than PatchTST.
 
 ![Parameter count](assets/card_params.png)
 
@@ -229,19 +229,21 @@ The same 6.5M-parameter architecture gained **43.8% better MASE** through three 
 
 ---
 
-## Quantile Calibration
+## Quantile Coverage
 
-NanoForecast produces well-calibrated uncertainty estimates. Coverage of predicted quantiles closely matches targets:
+Measured under the standard protocol (`benchmark_standard.py`; empirical P(target ≤ predicted quantile), mean across the six datasets):
 
-| Quantile | Target | Actual (mean across datasets) |
+| Quantile | Target | Measured |
 |:---|---:|---:|
-| p10 | 10% | 5.4% |
-| p25 | 25% | 19.1% |
-| p50 | 50% | 49.4% |
-| p75 | 75% | 79.9% |
-| p90 | 90% | 94.5% |
+| p10 | 10% | 20.1% |
+| p25 | 25% | 30.8% |
+| p50 | 50% | 45.4% |
+| p75 | 75% | 59.5% |
+| p90 | 90% | 71.4% |
 
-![Calibration](assets/card_coverage.png)
+**Honest note**: the predicted intervals are narrower than nominal under this protocol — the p10–p90 band covers 51% of held-out values (target 80%). Quantiles are best read as *relative* uncertainty signals (e.g., ranking steps by uncertainty) rather than calibrated probabilities. Point forecasts (p50) are unaffected and remain the recommended output for accuracy.
+
+![Coverage](assets/card_coverage.png)
 
 ---
 
@@ -275,7 +277,7 @@ Raw Context (512 steps)
 | **Hidden dim / layers** | 96 / 8 |
 | **Quantiles** | p10, p25, p50, p75, p90 |
 | **Streaming** | Stateful DeltaNet RNN — feed one value at a time |
-| **Deployment** | ONNX (FP32 + INT8), FastAPI, Docker, Raspberry Pi, Browser |
+| **Deployment** | ONNX (FP32 + INT8), FastAPI, Docker, Browser |
 
 ---
 
@@ -373,7 +375,7 @@ python3 train_from_csv.py --csv sales.csv --target revenue --horizon 48
 | **CPU inference** | **19.5ms** | GPU required | GPU required | GPU required | GPU required |
 | **Streaming** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **ONNX export** | **✅** | ❌ | ❌ | ❌ | ❌ |
-| **Raspberry Pi** | **✅** | ❌ | ❌ | ❌ | ❌ |
+| **Edge/ARM via ONNX** | **✅** | ❌ | ❌ | ❌ | ❌ |
 | **Quantiles** | **✅ (5)** | ⚠️ | ✅ | ✅ | ❌ |
 | **Train from CSV** | **✅** | ❌ | ❌ | ⚠️ | ⚠️ |
 | **License** | **Apache 2.0** | Apache 2.0 | Apache 2.0 | Apache 2.0 | Apache 2.0 |
