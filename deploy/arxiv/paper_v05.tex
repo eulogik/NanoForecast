@@ -425,11 +425,11 @@ p10--p90 band & 0.80 & 0.513 & 0.903 \\
     ytick=data,
     yticklabels={NanoForecast (6.5M), PatchTST (15M+), TimesFM (200M), Chronos-T5-large (710M)},
     xmin=0,
-    xmax=750,
+    xmax=780,
     grid=major,
     grid style={dashed, gray!30},
     nodes near coords,
-    every node near coord/.append style={font=\small},
+    every node near coord/.append style={font=\small, anchor=west},
 ]
 \addplot[fill=orange!80!white] coordinates {(6.5,NF) (15,PTST) (200,TFM) (710,CHR)};
 \end{axis}
@@ -527,12 +527,12 @@ We identify the following directions:
 All code, pretrained checkpoints, and the evaluation framework are released under Apache 2.0:
 
 \begin{itemize}
-\item GitHub: \url{https://github.com/eulogik/NanoForecast}
-\item Model checkpoints (v0.3, v0.5): \url{https://huggingface.co/eulogik/nanoforecast-v05} and \url{https://huggingface.co/eulogik/nanoforecast-v03}
-\item PatchTST baseline checkpoints: \url{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}
-\item TimesFM checkpoint: \url{https://huggingface.co/google/timesfm-1.0-200m-pytorch}
+\item GitHub: \href{https://github.com/eulogik/NanoForecast}{github.com/eulogik/NanoForecast}
+\item Model checkpoints (v0.3, v0.5): \href{https://huggingface.co/eulogik/nanoforecast-v05}{huggingface.co/eulogik/nanoforecast-v05} and \href{https://huggingface.co/eulogik/nanoforecast-v03}{huggingface.co/eulogik/nanoforecast-v03}
+\item PatchTST baseline checkpoints: \href{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}{huggingface.co/eulogik/nanoforecast-patchtst-baselines}
+\item TimesFM checkpoint: \href{https://huggingface.co/google/timesfm-1.0-200m-pytorch}{huggingface.co/google/timesfm-1.0-200m-pytorch}
 \item Standard-protocol results (including quantile coverage metrics): \texttt{results/standard\_benchmark.json} in the GitHub repository (protocol string included in the file)
-\item Interactive demo: \url{https://huggingface.co/spaces/eulogik/nanoforecast}
+\item Interactive demo: \href{https://huggingface.co/spaces/eulogik/nanoforecast}{huggingface.co/spaces/eulogik/nanoforecast}
 \item Training notebooks (Google Colab, free tier): \texttt{deploy/colab\_training\_v05.ipynb} in the repository
 \end{itemize}
 
