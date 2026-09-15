@@ -39,6 +39,12 @@ Eulogik \\
 \url{https://huggingface.co/eulogik/nanoforecast-v05}
 }
 
+% ---- submission notes (not rendered) ----
+% Primary: cs.LG | Secondary: cs.AI, stat.ML
+% License: CC BY 4.0
+% Affiliation: eulogik (lowercase)
+% Code: https://github.com/eulogik/NanoForecast
+
 % ---- begin ----
 \begin{document}
 
@@ -91,7 +97,7 @@ where the denominator is the in-sample mean absolute error of the seasonal-naive
 \label{sec:related}
 
 \paragraph{Foundation models for time series.}
-TimesFM~\cite{timesfm} employs a decoder-only transformer with 200M parameters trained on approximately 100B time points. Chronos~\cite{chronos} tokenizes time series values and fine-tunes T5 (710M parameters). Timer~\cite{timer} uses a generative pre-trained transformer for time series. Lag-Llama~\cite{lagllama} adapts LLaMA for probabilistic forecasting. More recent foundation models include Moirai~\cite{moirai}, Chronos-Bolt~\cite{chronosbolt}, and TimesFM 2.x~\cite{timesfm2}, and the GIFT-Eval benchmark~\cite{gifteval} provides standardized cross-model zero-shot evaluation. These models achieve strong zero-shot performance but require GPU infrastructure for both training and inference and do not support streaming deployment.
+TimesFM~\cite{timesfm} employs a decoder-only transformer with 200M parameters trained on approximately 100B time points. Chronos~\cite{chronos} tokenizes time series values and fine-tunes T5 (up to 710M parameters). Timer~\cite{timer} uses a generative pre-trained transformer for time series. Lag-Llama~\cite{lagllama} adapts LLaMA for probabilistic forecasting. More recent foundation models include Moirai~\cite{moirai}, Chronos-Bolt~\cite{chronosbolt}, and TimesFM 2.x~\cite{timesfm2}, and the GIFT-Eval benchmark~\cite{gifteval} provides standardized cross-model zero-shot evaluation. These models achieve strong zero-shot performance but require GPU infrastructure for both training and inference and do not support streaming deployment.
 
 \paragraph{Efficient architectures.}
 N-BEATS~\cite{nbeats} uses interpretable MLP blocks with 1.7M parameters. DLinear~\cite{dlinear} demonstrates that simple linear layers can outperform complex transformer architectures on certain benchmarks. PatchTST~\cite{patchtst} processes channel-independent patches with a transformer backbone. iTransformer~\cite{itransformer} applies attention along the time dimension rather than the feature dimension. SAMformer~\cite{samformer} applies sharpness-aware minimization to shallow transformers. TSMixer~\cite{tsmixer} uses MLP-based mixing. These models improve parameter efficiency but do not address streaming inference or edge deployment.
@@ -120,7 +126,7 @@ x'_i = \frac{x_i - \text{median}(\mathbf{x})}{\max(\text{IQR}(\mathbf{x}),\, \ep
 \end{equation}
 where $\text{IQR} = Q_{0.75} - Q_{0.25}$ and $\epsilon = 0.1$ prevents division by near-zero scales. This is more robust to outliers than z-score normalization.
 
-\textbf{Patching.} We divide the scaled series into non-overlapping patches of size $P=8$, reducing the sequence length from $C$ to $T = C / P$ tokens per layer.
+\textbf{Patching.} We divide the scaled series into non-overlapping patches of size $P=8$, reducing the sequence length from $C$ to $T = C / P$ tokens.
 
 \textbf{Frequency embedding.} A learned embedding encodes the data frequency (hourly, daily, weekly, monthly) and is prepended to the patch sequence, serving as a conditioning signal.
 
@@ -155,7 +161,7 @@ A single forward pass produces multiple outputs:
 \begin{itemize}
 \item \textbf{Point forecast}: $\hat{\mathbf{y}} = W_{\text{point}} \cdot \text{flat}(h_L) + b_{\text{point}}$, a linear projection from the flattened final-layer patch tokens ($T \cdot d_{\text{model}}$ values) to the horizon $H$.
 \item \textbf{Monotonic quantiles}: The head predicts the median $p_{50}$ directly and four non-negative softplus offsets, giving $p_{25} = p_{50} - \delta_{25}$, $p_{10} = p_{25} - \delta_{10}$, $p_{75} = p_{50} + \delta_{75}$, $p_{90} = p_{75} + \delta_{90}$; monotonicity $p_{10} \leq p_{25} \leq p_{50} \leq p_{75} \leq p_{90}$ holds by construction.
-\item \textbf{Decomposition}: Additive trend + seasonal + residual components satisfying $\hat{\mathbf{y}} = \mathbf{t} + \mathbf{s} + \mathbf{r}$.
+\item \textbf{Decomposition}: Additive trend + seasonal + residual components satisfying $\hat{\mathbf{y}} = \mathbf{t} + \mathbf{s} + \mathbf{r}$ for the point-head output; the reported median forecast ($p_{50}$) does not decompose this way.
 \item \textbf{Anomaly score}: Mean squared reconstruction error over the context window.
 \end{itemize}
 
@@ -242,7 +248,7 @@ We identify three issues in the v0.3-era training pipeline that silently degrade
 
 \textbf{Remediation.} v0.5 expands in-loop augmentation to a Reverso-style set: jitter, random scaling, shifting, masking, and time reversal (flip). Applied stochastically per window, this increases the effective diversity of the fixed corpus without changing the corpus itself or the training schedule.
 
-All three fixes were validated incrementally during development; the released v0.3 and v0.5 checkpoints bracket the joint effect (Table~\ref{tab:ablation}), evaluated under the same protocol used for every model in this paper.
+The three fixes were validated jointly; the released v0.3 and v0.5 checkpoints bracket the joint effect (Table~\ref{tab:ablation}), evaluated under the same protocol used for every model in this paper.
 
 % ==========================================================================
 \section{Experiments}
@@ -260,7 +266,7 @@ All three fixes were validated incrementally during development; the released v0
 \item \textbf{Traffic}~\cite{traffic}: Hourly road occupancy rates from 862 sensors on San Francisco Bay Area freeways (2015--2016). All 862 sensors are evaluated.
 \end{itemize}
 
-The ETT datasets use the standard train/validation/test temporal splits of 70\%/20\%/10\% (12/4/4 months); Exchange, Electricity, and Traffic use the standard 7:1:2 splits (70\%/10\%/20\%).
+The ETT datasets use the standard train/validation/test temporal splits of 70\%/20\%/10\% ; Exchange, Electricity, and Traffic use the standard 7:1:2 splits (70\%/10\%/20\%).
 
 \textbf{Model configuration.} $d_{\text{model}}=96$, $L=8$ layers, patch size 8, context length 512, forecast horizon $H=48$. Total parameters: 6.5M (identical architecture for v0.3 and v0.5).
 
@@ -268,7 +274,7 @@ The ETT datasets use the standard train/validation/test temporal splits of 70\%/
 
 \textbf{Evaluation.} For all NanoForecast checkpoints (v0.3 and v0.5 alike), the point forecast is the pinball-trained median ($p_{50}$) from the quantile head rather than the MSE-blended point-head output: the conditional median is the MAE-optimal predictor, matching the MAE-based MASE metric. This inference-time choice is applied identically to both checkpoints, so all comparisons are unaffected. We report MASE (Eq.~\ref{eq:mase}) as the metric. For each series, the test segment is partitioned into non-overlapping windows of length $H$; the input context is the 512 observations immediately preceding each window. Per-window errors are averaged within a series, then across series. Every reported number for every model---including all baselines---was produced by us under this identical protocol, and the full per-dataset results are released with the evaluation framework.
 
-\textbf{Compared methods.} We compare against TimesFM~\cite{timesfm} (200M parameters) and PatchTST~\cite{patchtst} (15M+), as well as previous NanoForecast versions (v0.3: 6.5M). Baselines use the official released checkpoints (google/timesfm-1.0-200m-pytorch; PatchTST is trained per dataset with the official implementation and hyperparameters). Chronos-T5-large~\cite{chronos} (710M) and Timer~\cite{timer} are discussed qualitatively; they are not included in Table~\ref{tab:main} because inference was intractable on our hardware for the large datasets (and no canonical released checkpoints exist for the exact protocol used here for the others).
+\textbf{Compared methods.} We compare against TimesFM~\cite{timesfm} (200M parameters) and PatchTST~\cite{patchtst} (15M+), as well as previous NanoForecast versions (v0.3: 6.5M). Baselines use the official released checkpoints: PatchTST is trained per dataset with the official implementation and hyperparameters; TimesFM uses \url{https://huggingface.co/google/timesfm-1.0-200m-pytorch}. Chronos-T5-large~\cite{chronos} (up to 710M) and Timer~\cite{timer} are discussed qualitatively; they are not included in Table~\ref{tab:main} because inference was intractable on our hardware for the large datasets, and we include only models whose official releases permit reproducible evaluation under a single protocol.
 
 \subsection{Main Results}
 \label{sec:results}
@@ -415,17 +421,17 @@ Streaming update                & 19.1\,ms & \texttt{predict\_step()}, stateful 
 NanoForecast provides an end-to-end deployment pipeline designed for production use:
 
 \begin{itemize}
-\item \textbf{Installation}: \texttt{pip install nanoforecast} from the GitHub repository (Apache 2.0).\footnote{The package is distributed via \url{https://github.com/eulogik/NanoForecast}; a PyPI release is planned.}
+\item \textbf{Installation}: \texttt{pip install nanoforecast} from the GitHub repository (Apache 2.0).\footnote{The package is distributed via \url{https://github.com/eulogik/NanoForecast}; PyPI: \url{https://pypi.org/project/nanoforecast/}.}
 \item \textbf{Custom training}: \texttt{train\_from\_csv.py --csv data.csv --target col --horizon H} trains on user-provided data.
-\item \textbf{Model export}: ONNX export produces a 27.9\,MB FP32 model (9.2\,MB with INT8 quantization).
-\item \textbf{REST API}: FastAPI server with measured 10.7\,ms ONNX Runtime CPU latency (Apple M4).
-\item \textbf{Containerization}: Multi-architecture Docker images (ARM64/x86\_64).
+\item \textbf{Model export}: ONNX export produces a 27.9\,MB FP32 model (9.2\,MB with INT8 quantization). Dynamic INT8 quantization overhead accounts for the latency increase vs.\ FP32.
+\item \textbf{REST API}: FastAPI server; ONNX Runtime CPU inference 10.7\,ms (Apple M4).
+\item \textbf{Containerization}: Dockerfile (builds on ARM64/x86\_64).
 \item \textbf{Interactive demo}: Gradio Space at \url{https://huggingface.co/spaces/eulogik/nanoforecast}.
 \end{itemize}
 
 \subsection{Streaming Inference}
 
-The DeltaNet recurrent state enables a mode unavailable in other time series models: stateful streaming inference. The model consumes new observations one at a time while preserving its recurrent memory across calls (no need to re-feed history), at the cost of one forward pass per update:
+The DeltaNet recurrent state enables a mode uncommon among window-based transformer forecasters: stateful streaming inference. The model consumes new observations one at a time while preserving its recurrent memory across calls (no need to re-feed history), at the cost of one forward pass per update:
 
 \begin{algorithm}[h]
 \caption{Streaming inference loop.}
@@ -450,7 +456,7 @@ State preservation is the differentiator: the DeltaNet state carries all past in
 The 43.8\% improvement from pipeline refinement alone raises questions about reproducibility in time series research. Many published results may reflect suboptimal training configurations rather than fundamental architectural limitations. Our three issues are not architecture-specific---they can affect any model using multi-task loss functions, data augmentation, or mixed corpora. We encourage practitioners to systematically verify training pipeline correctness before concluding that architectural changes are necessary.
 
 \subsection{Comparison with Foundation Models}
-NanoForecast v0.5 does not match foundation model accuracy overall (MASE 1.704 vs.\ 1.447 for TimesFM and 1.554 for PatchTST, all re-evaluated under the identical standard protocol). This is expected: 6.5M parameters cannot match the representational capacity of 200M+ parameter models across all domains. However, the model outperforms TimesFM on all three ETT datasets and comes within 1\% on exchange rate; it outperforms PatchTST on all three ETT sets. Its losses are concentrated on high-cardinality multivariate sets (electricity, traffic), where breadth of pretraining dominates. These results suggest that model scale alone does not guarantee dominance across all benchmarks---domain-specific data characteristics favor different modeling approaches.
+NanoForecast v0.5 does not match foundation model accuracy overall (MASE 1.704 vs.\ 1.447 for TimesFM and 1.554 for PatchTST, all re-evaluated under the identical standard protocol). This is expected: 6.5M parameters cannot match the representational capacity of 200M+ parameter models across all domains. However, the model outperforms TimesFM on all three ETT datasets and comes within 2\% on exchange rate; it outperforms PatchTST on all three ETT sets. Its losses are concentrated on high-cardinality multivariate sets (electricity, traffic), where breadth of pretraining dominates. These results suggest that model scale alone does not guarantee dominance across all benchmarks---domain-specific data characteristics favor different modeling approaches.
 
 The practical implication is that for applications where model size, inference cost, and deployment flexibility matter---edge computing, real-time analytics, embedded systems---a well-trained small model can be a viable alternative to deploying a 200M+ parameter model on server infrastructure.
 
@@ -485,7 +491,7 @@ The broader methodological implication is that training pipeline correctness des
 We identify the following directions:
 
 \begin{enumerate}
-\item \textbf{High-cardinality datasets}: The model trails TimesFM on electricity and traffic. Scaling the shared trunk (more channels, longer context) with the same corrected pipeline is the most direct path to closing this gap while staying under 20M parameters.
+\item \textbf{High-cardinality datasets}: The model trails TimesFM on electricity and traffic. Scaling the shared trunk (more channels, longer context) with the same corrected pipeline is a direct path to closing this gap while staying under 20M parameters.
 \item \textbf{More baselines under the identical protocol}: Evaluating additional foundation models (Chronos-T5-large, Moirai, Lag-Llama) under our standard protocol would strengthen the comparison; Chronos-T5-large was excluded here because inference was intractable on our hardware.
 \item \textbf{Horizon generalization}: The released checkpoints are trained for $H=48$; fine-tuning for other horizons and evaluating the streaming mode under drift would extend practical applicability.
 \item \textbf{Edge benchmarking}: Measure the exported ONNX models on target edge hardware (e.g., Raspberry Pi 4-class devices, microcontrollers) to quantify the streaming deployment envelope.
@@ -498,7 +504,8 @@ All code, pretrained checkpoints, and the evaluation framework are released unde
 \begin{itemize}
 \item GitHub: \url{https://github.com/eulogik/NanoForecast}
 \item Model checkpoints (v0.3, v0.5): \url{https://huggingface.co/eulogik/nanoforecast-v05} and \url{https://huggingface.co/eulogik/nanoforecast-v03}
-\item Baseline checkpoints (PatchTST, TimesFM): \url{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}
+\item PatchTST baseline checkpoints: \url{https://huggingface.co/eulogik/nanoforecast-patchtst-baselines}
+\item TimesFM checkpoint: \url{https://huggingface.co/google/timesfm-1.0-200m-pytorch}
 \item Standard-protocol results: \texttt{results/standard\_benchmark.json} in the GitHub repository (protocol string included in the file)
 \item Interactive demo: \url{https://huggingface.co/spaces/eulogik/nanoforecast}
 \item Training notebooks (Google Colab, free tier): \texttt{deploy/colab\_training\_v05.ipynb} in the repository
