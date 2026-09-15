@@ -9,10 +9,8 @@ Deploy:       upload app.py + requirements.txt to a Gradio Space.
 from __future__ import annotations
 
 import io
-import json
-import time
-from pathlib import Path
-from typing import Optional
+import os
+from typing import Optional, Union
 
 import gradio as gr
 import numpy as np
@@ -24,9 +22,10 @@ from nanoforecast import NanoForecast
 # --------------------------------------------------------------------------
 # Configuration
 # --------------------------------------------------------------------------
-MODEL_REPO = "eulogik/nanoforecast-v05"   # v0.5 — 6.5M params, standard-protocol MASE 1.704
-NATIVE_HORIZON = 48                        # model head is fixed at prediction_length = 48
-CONTEXT_LENGTH = 512
+MODEL_REPO = "eulogik/nanoforecast-v05"  # Best released checkpoint: standard-protocol MASE 1.704.
+EXPECTED_CONTEXT_LENGTH = 512
+EXPECTED_PREDICTION_LENGTH = 48
+EXPECTED_USE_DART_NORM = False
 FREQ_MAP = {"Hourly": 1, "Daily": 2, "Weekly": 3, "Monthly": 4}
 
 # Branding
@@ -42,31 +41,104 @@ _model: Optional[NanoForecast] = None
 
 
 def get_model() -> NanoForecast:
+    """Load the official v0.5 checkpoint and verify its production contract."""
     global _model
     if _model is None:
         _model = NanoForecast.from_pretrained(MODEL_REPO)
+        config = _model.config
+        if (
+            config.context_length != EXPECTED_CONTEXT_LENGTH
+            or config.prediction_length != EXPECTED_PREDICTION_LENGTH
+            or config.use_dart_norm != EXPECTED_USE_DART_NORM
+        ):
+            raise ValueError(
+                "Loaded model does not match the official NanoForecast v0.5 contract: "
+                f"expected context={EXPECTED_CONTEXT_LENGTH}, "
+                f"prediction_length={EXPECTED_PREDICTION_LENGTH}, "
+                f"use_dart_norm={EXPECTED_USE_DART_NORM}; got "
+                f"context={config.context_length}, "
+                f"prediction_length={config.prediction_length}, "
+                f"use_dart_norm={config.use_dart_norm}."
+            )
     return _model
 
 
 # --------------------------------------------------------------------------
 # Forecasting
 # --------------------------------------------------------------------------
-def forecast(series: np.ndarray, horizon: int, freq_id: int) -> dict:
-    """Run a single-call forecast at the model's native horizon."""
+def _uploaded_csv_path(upload: Union[str, os.PathLike, object, None]) -> Optional[str]:
+    """Accept Gradio file payloads as paths, path-like objects, or file objects."""
+    if upload is None:
+        return None
+    if isinstance(upload, (str, os.PathLike)):
+        return os.fspath(upload)
+    name = getattr(upload, "name", None)
+    if isinstance(name, (str, os.PathLike)):
+        return os.fspath(name)
+    raise ValueError(f"Unsupported upload payload of type {type(upload).__name__}.")
+
+
+def _select_numeric_series(df: pd.DataFrame, target_col: str) -> tuple[np.ndarray, str]:
+    """Select one finite numeric column, preserving the user's column choice."""
+    column = (target_col or "").strip()
+    if not column:
+        available = ", ".join(df.columns[:10])
+        raise ValueError(f"Enter a target column name. Available columns: {available}")
+    if column not in df.columns:
+        available = ", ".join(df.columns[:10])
+        raise ValueError(f"Column '{column}' not found. Available columns: {available}")
+    values = pd.to_numeric(df[column], errors="coerce").to_numpy(dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        raise ValueError(f"Column '{column}' contains no finite numeric values.")
+    return values, column
+
+
+def forecast(series: np.ndarray, requested_horizon: int, freq_id: int) -> dict:
+    """Run the checkpoint at its native horizon, then expose a shorter prefix if asked."""
     model = get_model()
-    if len(series) < CONTEXT_LENGTH:
-        raise ValueError(f"Need at least {CONTEXT_LENGTH} timesteps, got {len(series)}.")
-    context = series[-CONTEXT_LENGTH:].astype(np.float32)
+    context_length = model.config.context_length
+    native_horizon = model.config.prediction_length
+    horizon = max(1, min(int(requested_horizon), native_horizon))
+
+    if len(series) < context_length:
+        raise ValueError(f"Need at least {context_length} timesteps, got {len(series)}.")
+    context = series[-context_length:].astype(np.float32)
     out = model.predict(
-        context, horizon=min(horizon, NATIVE_HORIZON),
-        freq=freq_id, return_components=True,
+        context, horizon=native_horizon, freq=freq_id, return_components=True
     )
+
+    forecast_values = np.asarray(out["forecast"][0])
+    quantiles = np.asarray(out["quantiles"][0])  # (5, native_horizon)
+    trend = np.asarray(out["trend"][0])
+    seasonal = np.asarray(out["seasonal"][0])
+    residual = np.asarray(out["residual"][0])
+    expected = (native_horizon,)
+    if (
+        forecast_values.shape != expected
+        or quantiles.shape != (5, native_horizon)
+        or trend.shape != expected
+        or seasonal.shape != expected
+        or residual.shape != expected
+    ):
+        raise ValueError(
+            "Unexpected forecast shapes from "
+            f"{MODEL_REPO}: forecast={forecast_values.shape}, quantiles={quantiles.shape}, "
+            f"trend={trend.shape}, seasonal={seasonal.shape}, residual={residual.shape}."
+        )
+
+    parameters = sum(p.numel() for p in model.parameters())
     return {
-        "forecast": out["forecast"][0],
-        "quantiles": out["quantiles"][0],          # (5, H)
-        "trend": out["trend"][0],
-        "seasonal": out["seasonal"][0],
-        "context_length": CONTEXT_LENGTH,
+        "forecast": forecast_values,
+        "quantiles": quantiles,
+        "trend": trend,
+        "seasonal": seasonal,
+        "residual": residual,
+        "context_length": context_length,
+        "native_horizon": native_horizon,
+        "requested_horizon": horizon,
+        "parameters": int(parameters),
+        "use_dart_norm": bool(model.config.use_dart_norm),
     }
 
 
@@ -79,7 +151,7 @@ def make_example() -> tuple[Optional[str], str]:
     seasonal = 8 * np.sin(2 * np.pi * t / 48) + 3 * np.sin(2 * np.pi * t / 168)
     noise = rng.normal(0, 1.2, size=len(t))
     y = 50 + trend + seasonal + noise
-    df = pd.DataFrame({"timestamp": pd.date_range("2023-01-01", periods=len(t), freq="H"),
+    df = pd.DataFrame({"timestamp": pd.date_range("2023-01-01", periods=len(t), freq="h"),
                        "value": y.round(3)})
     buf = io.StringIO()
     df.to_csv(buf, index=False)
@@ -89,7 +161,7 @@ def make_example() -> tuple[Optional[str], str]:
 # --------------------------------------------------------------------------
 # Plotting
 # --------------------------------------------------------------------------
-def build_forecast_plot(context, forecast, quantiles, horizon):
+def build_forecast_plot(context, forecast, quantiles):
     H = len(forecast)
     ctx_len = len(context)
     x_ctx = list(range(ctx_len))
@@ -123,20 +195,23 @@ def build_forecast_plot(context, forecast, quantiles, horizon):
     return fig
 
 
-def build_decomp_plot(context, trend, seasonal):
-    ctx_len = len(context)
-    x = list(range(ctx_len))
+def build_decomp_plot(forecast, trend, seasonal, residual):
+    """Plot the model's forecast-horizon components against its p50 forecast."""
+    horizon = len(forecast)
+    x = list(range(1, horizon + 1))
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=context, mode="lines", name="Original",
-                             line=dict(color="#64748B", width=1.5)))
-    fig.add_trace(go.Scatter(x=x, y=trend, mode="lines", name="Trend",
+    fig.add_trace(go.Scatter(x=x, y=forecast, mode="lines", name="p50 forecast",
+                             line=dict(color=ORANGE, width=2.5)))
+    fig.add_trace(go.Scatter(x=x, y=trend, mode="lines", name="Trend component",
                              line=dict(color=BLUE, width=2)))
-    fig.add_trace(go.Scatter(x=x, y=seasonal, mode="lines", name="Seasonal",
+    fig.add_trace(go.Scatter(x=x, y=seasonal, mode="lines", name="Seasonal component",
                              line=dict(color=GREEN, width=2)))
+    fig.add_trace(go.Scatter(x=x, y=residual, mode="lines", name="Residual component",
+                             line=dict(color="#64748B", width=1.5, dash="dot")))
     fig.update_layout(
-        title="🧩 Decomposition (last context window)",
-        xaxis_title="Time step", yaxis_title="Value",
-        hovermode="x unified", template="plotly_white", height=300,
+        title=f"🧩 Forecast decomposition (next {horizon} steps)",
+        xaxis_title="Forecast step", yaxis_title="Value",
+        hovermode="x unified", template="plotly_white", height=320,
         margin=dict(l=40, r=20, t=50, b=40),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         font=dict(family="Inter, sans-serif"),
@@ -148,55 +223,72 @@ def build_decomp_plot(context, trend, seasonal):
 # UI callbacks
 # --------------------------------------------------------------------------
 def run_forecast(csv_file, csv_text, target_col, horizon, freq_choice, progress=gr.Progress()):
-    progress(0.1, desc="Loading model…")
+    progress(0.1, desc="Reading input…")
     try:
         freq_id = FREQ_MAP.get(freq_choice, 1)
-        horizon = int(min(horizon, NATIVE_HORIZON))
+        requested_horizon = max(1, int(horizon))
 
-        # Resolve input: uploaded file > pasted text > example
-        series = None
-        used_col = target_col
-        if csv_file is not None:
-            df = pd.read_csv(csv_file.name)
+        # Resolve input: uploaded file > pasted text > example.
+        upload_path = _uploaded_csv_path(csv_file)
+        if upload_path is not None:
+            df = pd.read_csv(upload_path)
+            column_name = target_col
         elif csv_text and csv_text.strip():
             df = pd.read_csv(io.StringIO(csv_text))
+            column_name = target_col
         else:
-            text, used_col = make_example()
-            df = pd.read_csv(io.StringIO(text))
+            example_text, column_name = make_example()
+            df = pd.read_csv(io.StringIO(example_text))
 
-        if used_col not in df.columns:
-            cols = ", ".join(df.columns[:10])
-            return None, None, None, f"❌ Column `{used_col}` not found. Available: {cols}"
+        series, used_col = _select_numeric_series(df, column_name)
 
-        series = df[used_col].dropna().values.astype(float)
-        if len(series) < CONTEXT_LENGTH:
+        progress(0.45, desc="Loading model…")
+        model = get_model()
+        context_length = model.config.context_length
+        native_horizon = model.config.prediction_length
+        horizon = min(requested_horizon, native_horizon)
+        if len(series) < context_length:
             return (None, None, None,
-                    f"❌ Need ≥ {CONTEXT_LENGTH} values, got {len(series)} in `{used_col}`.")
+                    f"❌ Need ≥ {context_length} values, got {len(series)} in `{used_col}`.")
 
-        progress(0.5, desc="Forecasting…")
+        progress(0.65, desc="Forecasting…")
         res = forecast(series, horizon, freq_id)
         progress(0.9, desc="Plotting…")
 
-        context = series[-res["context_length"]:]
-        fig_fc = build_forecast_plot(context, res["forecast"], res["quantiles"], horizon)
-        fig_dc = build_decomp_plot(context, res["trend"], res["seasonal"])
+        forecast_values = res["forecast"][:horizon]
+        quantiles = res["quantiles"][:, :horizon]
+        trend = res["trend"][:horizon]
+        seasonal = res["seasonal"][:horizon]
+        residual = res["residual"][:horizon]
+        context = series[-context_length:]
+
+        fig_fc = build_forecast_plot(context, forecast_values, quantiles)
+        fig_dc = build_decomp_plot(forecast_values, trend, seasonal, residual)
 
         table = pd.DataFrame({
             "step": list(range(1, horizon + 1)),
-            "p10": res["quantiles"][0],
-            "p25": res["quantiles"][1],
-            "p50 (forecast)": res["quantiles"][2],
-            "p75": res["quantiles"][3],
-            "p90": res["quantiles"][4],
+            "p10": quantiles[0],
+            "p25": quantiles[1],
+            "p50 (forecast)": quantiles[2],
+            "p75": quantiles[3],
+            "p90": quantiles[4],
         }).round(4)
 
+        normalizer = "median/IQR" if not res["use_dart_norm"] else "DART mean/std"
+        horizon_note = (
+            f"{horizon} steps (first {horizon} of the native {native_horizon}-step forecast)"
+            if horizon < native_horizon
+            else f"{horizon} steps (native horizon)"
+        )
         summary = (
-            f"### ✅ Forecast complete\n"
-            f"- **Model:** `{MODEL_REPO}` (v0.5, 6.5M params)\n"
+            "### ✅ Forecast complete\n"
+            f"- **Model:** `{MODEL_REPO}` (v0.5, {res['parameters']:,} params)\n"
+            f"- **Contract:** context {context_length} · native horizon {native_horizon} · "
+            f"{normalizer} normalization · pinball-trained p50\n"
             f"- **Column:** `{used_col}` · **Series length:** {len(series)}\n"
-            f"- **Horizon:** {horizon} steps · **Frequency:** {freq_choice}\n"
-            f"- **Overall MASE:** 1.704 (standard protocol) · beats TimesFM on 4/6 benchmarks\n"
-            f"- **Params:** 6.5M (~26 MB) · Apache 2.0 · [Eulogik](https://eulogik.com)"
+            f"- **Horizon:** {horizon_note} · **Frequency:** {freq_choice}\n"
+            "- **Overall MASE:** 1.704 (standard protocol) · beats TimesFM on 4/6 benchmarks\n"
+            "- **License:** Apache 2.0 · [Eulogik](https://eulogik.com)"
         )
         return fig_fc, fig_dc, table, summary
 
@@ -254,15 +346,15 @@ with gr.Blocks(theme=THEME, css=CSS, title="NanoForecast v0.5 — Time Series Fo
                 target_col = gr.Textbox(label="Target column", value="value",
                                         placeholder="e.g. OT, sales")
                 example_btn = gr.Button("✨ Load example", variant="secondary")
-            horizon = gr.Slider(minimum=12, maximum=NATIVE_HORIZON, step=12,
-                                value=NATIVE_HORIZON, label="Horizon (steps)")
+            horizon = gr.Slider(minimum=12, maximum=EXPECTED_PREDICTION_LENGTH, step=12,
+                                value=EXPECTED_PREDICTION_LENGTH, label="Horizon (steps)")
             freq_choice = gr.Radio(choices=list(FREQ_MAP.keys()), value="Hourly",
                                    label="Frequency")
             run_btn = gr.Button("🔮 Forecast", variant="primary", size="lg")
 
             gr.Markdown(
                 "**Try it:** hit *Load example* then *Forecast* — no upload needed. "
-                "Max horizon is 48 (the model's native window)."
+                "Shorter choices show the first steps of the native 48-step forecast."
             )
 
         with gr.Column(scale=2):
@@ -308,7 +400,7 @@ with gr.Blocks(theme=THEME, css=CSS, title="NanoForecast v0.5 — Time Series Fo
                 """
                 | Dataset | **NF v0.5** (6.5M) | TimesFM (200M) | PatchTST (15M+) |
                 |---|---:|---:|---:|
-                | ETTh1 | **0.681** | 0.705 | 0.781 |
+                | ETTh1 | **0.676** | 0.705 | 0.781 |
                 | ETTh2 | **1.110** | 1.360 | 1.467 |
                 | ETTm1 | **0.287** | 0.545 | 0.488 |
                 | exchange_rate | **4.317** | 4.383 | 3.861 |
