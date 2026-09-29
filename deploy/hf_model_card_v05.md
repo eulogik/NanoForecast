@@ -371,17 +371,18 @@ signals rather than calibrated probabilities; point forecasts (p50) are unaffect
 
 ---
 
-## 📚 Citation
+## Citation
 
 ```bibtex
-@article{nanoforecast2026,
-  title={NanoForecast: A Deployable Time Series Foundation Model},
-  author={Eulogik},
-  year={2026},
-  url={https://github.com/eulogik/NanoForecast},
-  note={6.5M parameters, CPU inference, ONNX export, streaming}
+@article{kishore2026nanoforecast,
+  title={NanoForecast v0.5: Competitive Time Series Forecasting Through Training Pipeline Optimization},
+  author={Kishore, Gautam},
+  journal={arXiv preprint arXiv:2609.31669},
+  year={2026}
 }
 ```
+
+**Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
 
 ---
 
@@ -391,7 +392,8 @@ signals rather than calibrated probabilities; point forecasts (p50) are unaffect
 - **Live Demo**: [huggingface.co/spaces/eulogik/nanoforecast](https://huggingface.co/spaces/eulogik/nanoforecast)
 - **Colab Training**: [Open in Colab](https://colab.research.google.com/github/eulogik/NanoForecast/blob/v0.5/deploy/colab_training_v05.ipynb)
 - **Website**: [eulogik.com](https://eulogik.com)
-- **Other models**: [eulogik/nanoforecast-200k](https://huggingface.co/eulogik/nanoforecast-200k) · [eulogik/nanoforecast-v03](https://huggingface.co/eulogik/nanoforecast-v03)
+- **Other models**: [eulogik/nanoforecast-200k](https://huggingface.co/eulogik/nanoforecast-200k) · [eulogik/nanoforecast-v03](https://huggingface.co/eulogik/nanoforecast-v03) · [eulogik/nanoforecast-patchtst-baselines](https://huggingface.co/eulogik/nanoforecast-patchtst-baselines)
+- **Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
 
 ---
 

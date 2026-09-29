@@ -358,6 +358,19 @@ You should be able to train a forecasting model on your laptop, deploy it to a R
 
 Apache 2.0. See [LICENSE](./LICENSE).
 
+## Citation
+
+```bibtex
+@article{kishore2026nanoforecast,
+  title={NanoForecast v0.5: Competitive Time Series Forecasting Through Training Pipeline Optimization},
+  author={Kishore, Gautam},
+  journal={arXiv preprint arXiv:2609.31669},
+  year={2026}
+}
+```
+
+**Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
+
 ---
 
 Built by [Eulogik](https://eulogik.com) — deployable AI for the real world.

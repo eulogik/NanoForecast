@@ -233,14 +233,15 @@ for new_val in incoming_stream:
 ## Citation
 
 ```bibtex
-@article{nanoforecast2026,
-  title={NanoForecast: A Deployable Time Series Foundation Model},
-  author={Gautam Kishore and Eulogik},
-  year={2026},
-  url={https://github.com/eulogik/NanoForecast},
-  note={6.5M parameters, CPU inference, ONNX export, streaming RNN}
+@article{kishore2026nanoforecast,
+  title={NanoForecast v0.5: Competitive Time Series Forecasting Through Training Pipeline Optimization},
+  author={Kishore, Gautam},
+  journal={arXiv preprint arXiv:2609.31669},
+  year={2026}
 }
 ```
+
+**Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
 
 ---
 
@@ -248,8 +249,9 @@ for new_val in incoming_stream:
 
 - **GitHub**: [github.com/eulogik/NanoForecast](https://github.com/eulogik/NanoForecast)
 - **Live Demo**: [huggingface.co/spaces/eulogik/nanoforecast](https://huggingface.co/spaces/eulogik/nanoforecast)
-- **Paper**: [arxiv.org/abs/2608.14658](https://arxiv.org/abs/2608.14658)
+- **Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
 - **Latest version**: [eulogik/nanoforecast-v05](https://huggingface.co/eulogik/nanoforecast-v05)
+- **Paper**: [arxiv.org/abs/2609.31669](https://arxiv.org/abs/2609.31669)
 - **Website**: [eulogik.com](https://eulogik.com)
 
 ---

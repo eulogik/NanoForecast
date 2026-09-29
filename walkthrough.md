@@ -268,3 +268,20 @@ Infra lessons (from the last chapter of the previous session):
   coverage + mixed-aug train. This is the make-or-break for a defensible "beats TimesFM" claim.
 - exchange_rate currently ties TimesFM (4.42 vs 4.38) — already far from the old 3.578-internal baseline.
 - arXiv paper must be written over the standard protocol table.
+
+---
+
+## Paper
+
+**Title**: NanoForecast v0.5: Competitive Time Series Forecasting Through Training Pipeline Optimization
+**arXiv**: [2609.31669](https://arxiv.org/abs/2609.31669)
+**Published**: 2026
+
+```bibtex
+@article{kishore2026nanoforecast,
+  title={NanoForecast v0.5: Competitive Time Series Forecasting Through Training Pipeline Optimization},
+  author={Kishore, Gautam},
+  journal={arXiv preprint arXiv:2609.31669},
+  year={2026}
+}
+```
